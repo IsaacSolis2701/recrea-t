@@ -1452,6 +1452,15 @@ const start = async () => {
 		console.warn('DEFAULT_ADMIN_PASSWORD sigue usando una credencial insegura. Cambiala antes de desplegar.');
 	}
 
+	// Serve compiled frontend in production
+	if (process.env.NODE_ENV === 'production') {
+		const distPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../dist');
+		app.use(express.static(distPath));
+		app.get('*', (_req, res) => {
+			res.sendFile(path.join(distPath, 'index.html'));
+		});
+	}
+
 	app.listen(config.port, () => {
 		console.log(`API escuchando en http://localhost:${config.port}`);
 	});
