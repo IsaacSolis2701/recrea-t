@@ -54,7 +54,7 @@ const LoginForm = () => {
         />
         <motion.h1
           className="text-white text-4xl font-bold"
-          style={{ fontFamily: 'Fraunces, Georgia, serif', letterSpacing: '-0.03em' }}
+          style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}

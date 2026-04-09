@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Award, Plus, Calendar, FileCheck, Download, Eye, AlertCircle, CheckCircle, CreditCard, Clock } from 'lucide-react';
+import { Award, Plus, Calendar, FileCheck, Download, Eye, AlertCircle, CheckCircle, CreditCard, Clock, Unlock, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import AddCertificationModal from '@/components/AddCertificationModal';
@@ -33,6 +33,7 @@ const CertificationManager = ({ projectId, certifications, onUpdate, userRole, o
       id: Date.now().toString(),
       ...certData,
       isPaid: false,
+      paymentEnabled: false,
       createdAt: new Date().toISOString(),
     };
 
@@ -71,6 +72,22 @@ const CertificationManager = ({ projectId, certifications, onUpdate, userRole, o
         variant: 'destructive',
       });
     }
+  };
+
+  const handleTogglePaymentEnabled = (certId) => {
+    const targetCert = certifications.find((c) => c.id === certId);
+    if (!targetCert) return;
+
+    const updatedCerts = certifications.map((cert) =>
+      cert.id === certId ? { ...cert, paymentEnabled: !cert.paymentEnabled } : cert
+    );
+    onUpdate(updatedCerts);
+    toast({
+      title: targetCert.paymentEnabled ? 'Pago deshabilitado' : 'Pago habilitado',
+      description: targetCert.paymentEnabled
+        ? 'El cliente ya no puede realizar el pago.'
+        : 'El cliente ya puede realizar el pago desde su portal.',
+    });
   };
 
   const handlePreview = (cert) => {
@@ -230,23 +247,40 @@ const CertificationManager = ({ projectId, certifications, onUpdate, userRole, o
                             {cert.isPaid ? 'Pagado' : 'Pendiente de pago'}
                           </span>
                         </div>
-                        {userRole === 'client' && !cert.isPaid && (
+                        {userRole === 'client' && !cert.isPaid && cert.paymentEnabled && (
                           <Button size="sm" onClick={() => onPayCertification && onPayCertification(cert)} className="h-8 text-xs">
                             Pagar
                           </Button>
+                        )}
+                        {userRole === 'client' && !cert.isPaid && !cert.paymentEnabled && (
+                          <span className="text-xs text-muted-foreground italic">Pago no habilitado</span>
                         )}
                       </div>
                     </div>
                   </div>
 
                   {userRole === 'admin' && (
-                    <Button
-                      onClick={() => handleTogglePaidStatus(cert.id)}
-                      variant={cert.isPaid ? 'outline' : 'default'}
-                      className="w-full mt-4"
-                    >
-                      {cert.isPaid ? 'Marcar como pendiente' : 'Marcar como pagado'}
-                    </Button>
+                    <div className="mt-4 space-y-2">
+                      <Button
+                        onClick={() => handleTogglePaymentEnabled(cert.id)}
+                        variant={cert.paymentEnabled ? 'default' : 'outline'}
+                        size="sm"
+                        className="w-full"
+                      >
+                        {cert.paymentEnabled ? (
+                          <><Lock className="w-3.5 h-3.5 mr-2" />Deshabilitar pago cliente</>
+                        ) : (
+                          <><Unlock className="w-3.5 h-3.5 mr-2" />Habilitar pago cliente</>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => handleTogglePaidStatus(cert.id)}
+                        variant={cert.isPaid ? 'outline' : 'secondary'}
+                        className="w-full"
+                      >
+                        {cert.isPaid ? 'Marcar como pendiente' : 'Marcar como pagado'}
+                      </Button>
+                    </div>
                   )}
                 </motion.div>
               );

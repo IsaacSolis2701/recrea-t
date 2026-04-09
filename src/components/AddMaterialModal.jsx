@@ -9,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 import { uploadFile } from '@/lib/apiClient';
 
-const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initialData = null, context = 'project', availableCategories = [], onNewCategory, category }) => {
-  const getInitialFormData = (data, defaultCategory) => ({
+const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initialData = null, context = 'project', availableCategories = [], onNewCategory, category, subcategory, availableSubcategories = [] }) => {
+  const getInitialFormData = (data, defaultCategory, defaultSubcategory) => ({
     name: data?.name || '',
     description: data?.description || '',
     category: data?.category || defaultCategory || '',
+    subcategory: data?.subcategory || defaultSubcategory || '',
     price: data?.price || '',
     brand: data?.brand || '',
     format: data?.format || '',
@@ -21,8 +22,10 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
     ambianceImageUrl: data?.ambiance_image_url || '',
   });
 
-  const [formData, setFormData] = useState(getInitialFormData(null, category || availableCategories?.[0]));
+  const [formData, setFormData] = useState(getInitialFormData(null, category || availableCategories?.[0], subcategory));
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [showNewSubcategoryInput, setShowNewSubcategoryInput] = useState(false);
+  const [newSubcategory, setNewSubcategory] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [productImageFile, setProductImageFile] = useState(null);
   const [ambianceImageFile, setAmbianceImageFile] = useState(null);
@@ -32,12 +35,14 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
     if (isOpen) {
       const defaultCategory = category || (availableCategories.length > 0 ? availableCategories[0] : '');
       if (isEditing && initialData) {
-        setFormData(getInitialFormData(initialData, defaultCategory));
+        setFormData(getInitialFormData(initialData, defaultCategory, subcategory));
       } else {
-        setFormData(getInitialFormData(null, defaultCategory));
+        setFormData(getInitialFormData(null, defaultCategory, subcategory));
       }
       setShowNewCategoryInput(false);
       setNewCategory('');
+      setShowNewSubcategoryInput(false);
+      setNewSubcategory('');
       setProductImageFile(null);
       setAmbianceImageFile(null);
     }
@@ -111,6 +116,7 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
         name: formData.name,
         description: formData.description,
         category: formData.category,
+        subcategory: formData.subcategory || '',
         price: parseFloat(formData.price) || 0,
         brand: formData.brand,
         format: formData.format,
@@ -180,6 +186,54 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
                 />
                 <Button type="button" onClick={handleAddNewCategory}>Añadir</Button>
                 <Button type="button" variant="ghost" onClick={() => setShowNewCategoryInput(false)}>Cancelar</Button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="subcategory-field">Subcategoría</Label>
+            {context !== 'catalog' && subcategory ? (
+              <Input id="subcategory-field" value={formData.subcategory} readOnly className="bg-muted" />
+            ) : !showNewSubcategoryInput ? (
+              <Select
+                value={formData.subcategory || '__new__'}
+                onValueChange={(v) => {
+                  if (v === '__new__') { setShowNewSubcategoryInput(true); }
+                  else { handleInputChange('subcategory', v); }
+                }}
+              >
+                <SelectTrigger id="subcategory-field">
+                  <SelectValue placeholder="Selecciona o crea subcategoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSubcategories.map((sub) => (
+                    <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                  ))}
+                  <SelectItem value="__new__" className="text-primary font-semibold">
+                    <div className="flex items-center gap-2">
+                      <Plus className="w-4 h-4" /> Nueva subcategoría
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  value={newSubcategory}
+                  onChange={(e) => setNewSubcategory(e.target.value)}
+                  placeholder="Nombre de la subcategoría"
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (newSubcategory.trim()) {
+                      handleInputChange('subcategory', newSubcategory.trim());
+                      setShowNewSubcategoryInput(false);
+                      setNewSubcategory('');
+                    }
+                  }}
+                >Añadir</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowNewSubcategoryInput(false)}>Cancelar</Button>
               </div>
             )}
           </div>

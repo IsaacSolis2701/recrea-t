@@ -14,6 +14,7 @@ const AddInvoiceModal = ({ isOpen, onClose, onSubmit, invoice }) => {
     number: invoice?.number || '',
     description: invoice?.description || '',
     amount: invoice?.amount || '',
+    issueDate: invoice?.issueDate ? invoice.issueDate.split('T')[0] : new Date().toISOString().split('T')[0],
     dueDate: invoice?.dueDate ? invoice.dueDate.split('T')[0] : '',
     paid: invoice?.paid || false,
     file: null,
@@ -48,6 +49,7 @@ const AddInvoiceModal = ({ isOpen, onClose, onSubmit, invoice }) => {
         number: formData.number,
         description: formData.description,
         amount: parseFloat(formData.amount),
+        issueDate: formData.issueDate,
         dueDate: formData.dueDate,
         paid: formData.paid,
         file: fileName,
@@ -117,15 +119,27 @@ const AddInvoiceModal = ({ isOpen, onClose, onSubmit, invoice }) => {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="dueDate">Fecha de Vencimiento</Label>
-            <Input
-              id="dueDate"
-              type="date"
-              value={formData.dueDate}
-              onChange={(event) => setFormData({ ...formData, dueDate: event.target.value })}
-              required
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="issueDate">Fecha de Emisión</Label>
+              <Input
+                id="issueDate"
+                type="date"
+                value={formData.issueDate}
+                onChange={(event) => setFormData({ ...formData, issueDate: event.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">Fecha de Vencimiento</Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={formData.dueDate}
+                onChange={(event) => setFormData({ ...formData, dueDate: event.target.value })}
+                required
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

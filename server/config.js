@@ -34,4 +34,12 @@ export const config = {
 		password: process.env.DEFAULT_ADMIN_PASSWORD || '',
 	},
 	uploadRoot: path.join(rootDir, 'server', 'uploads'),
+	email: {
+		from: process.env.EMAIL_FROM || 'info@recrea-t.es',
+		smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+		smtpPort: numberFromEnv(process.env.SMTP_PORT, 587),
+		smtpSecure: process.env.SMTP_SECURE === 'true',
+		smtpUser: process.env.SMTP_USER || process.env.GMAIL_USER,
+		smtpPass: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD,
+	},
 };

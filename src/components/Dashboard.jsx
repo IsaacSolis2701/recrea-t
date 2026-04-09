@@ -76,44 +76,48 @@ const Dashboard = ({ projects, onSelectProject, userRole, onProjectsLoaded }) =>
 
       {userRole === 'admin' && (
         <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-          <div className="surface-panel rounded-2xl p-4 sm:p-6">
+          {/* Obras Abiertas — Pantone Almost Aqua 13-6006 TCX */}
+          <div className="rounded-2xl p-4 sm:p-6 border" style={{ background: 'linear-gradient(145deg,#EBF0EB,#F4F7F4)', borderColor: '#CDDACD', boxShadow: '0 2px 14px rgba(57,80,57,0.08)' }}>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-foreground/8 flex items-center justify-center">
-                <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center" style={{ background: '#C5D5C5' }}>
+                <Building2 className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#3D5C3D' }} />
               </div>
               <span className="text-3xl sm:text-4xl font-bold text-foreground">{stats.total}</span>
             </div>
-            <p className="text-sm font-medium text-muted-foreground">Obras Abiertas</p>
+            <p className="text-sm font-medium" style={{ color: '#4A6A4A' }}>Obras Abiertas</p>
           </div>
 
-          <div className="surface-panel rounded-2xl p-4 sm:p-6">
+          {/* En Progreso — Pantone Ice Melt 13-4306 TCX */}
+          <div className="rounded-2xl p-4 sm:p-6 border" style={{ background: 'linear-gradient(145deg,#E2EBF0,#EEF4F8)', borderColor: '#BCCDD9', boxShadow: '0 2px 14px rgba(57,80,100,0.08)' }}>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-blue-50 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center" style={{ background: '#B5CCDA' }}>
+                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#2A4D65' }} />
               </div>
               <span className="text-3xl sm:text-4xl font-bold text-foreground">{stats.active}</span>
             </div>
-            <p className="text-sm font-medium text-muted-foreground">En Progreso</p>
+            <p className="text-sm font-medium" style={{ color: '#336080' }}>En Progreso</p>
           </div>
 
-          <div className="surface-panel rounded-2xl p-4 sm:p-6">
+          {/* Completados — Pantone Lemon Icing 11-0515 TCX (tint) */}
+          <div className="rounded-2xl p-4 sm:p-6 border" style={{ background: 'linear-gradient(145deg,#F2F0DC,#F8F7ED)', borderColor: '#DDD9B8', boxShadow: '0 2px 14px rgba(80,77,40,0.08)' }}>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-emerald-50 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500" />
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center" style={{ background: '#CECA8C' }}>
+                <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#5C5510' }} />
               </div>
               <span className="text-3xl sm:text-4xl font-bold text-foreground">{stats.completed}</span>
             </div>
-            <p className="text-sm font-medium text-muted-foreground">Completados</p>
+            <p className="text-sm font-medium" style={{ color: '#6A6220' }}>Completados</p>
           </div>
 
-          <div className="surface-panel rounded-2xl p-4 sm:p-6">
+          {/* Planificación — Warm neutral */}
+          <div className="rounded-2xl p-4 sm:p-6 border bg-amber-50 border-amber-100" style={{ boxShadow: '0 2px 14px rgba(100,80,0,0.06)' }}>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-amber-50 flex items-center justify-center">
-                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-amber-100 flex items-center justify-center">
+                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
               </div>
               <span className="text-3xl sm:text-4xl font-bold text-foreground">{stats.pending}</span>
             </div>
-            <p className="text-sm font-medium text-muted-foreground">Planificación</p>
+            <p className="text-sm font-medium text-amber-700">Planificación</p>
           </div>
         </motion.div>
       )}

@@ -12,12 +12,12 @@ import { config } from './config.js';
 import { getPool, initDatabase } from './db.js';
 
 const emailTransporter = nodemailer.createTransport({
-	host: 'smtp.gmail.com',
-	port: 587,
-	secure: false,
+	host: config.email.smtpHost,
+	port: config.email.smtpPort,
+	secure: config.email.smtpSecure,
 	auth: {
-		user: process.env.GMAIL_USER,
-		pass: process.env.GMAIL_APP_PASSWORD,
+		user: config.email.smtpUser,
+		pass: config.email.smtpPass,
 	},
 });
 
@@ -1058,7 +1058,7 @@ app.post('/api/reminders/send', authMiddleware, requireRole('admin'), async (_re
 
 		try {
 			await emailTransporter.sendMail({
-				from: `"ReCrea-T" <${process.env.GMAIL_USER}>`,
+				from: `"ReCrea-T" <${config.email.from}>`,
 				to: reminder.client_email,
 				subject: `Recordatorio de pago: ${reminder.certification_name || 'Certificación'}`,
 				html: `

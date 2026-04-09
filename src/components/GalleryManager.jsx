@@ -6,7 +6,7 @@ import { toast } from '@/components/ui/use-toast';
 import ImageFormModal from '@/components/ImageFormModal';
 import ImageViewModal from '@/components/ImageViewModal';
 
-const GalleryManager = ({ gallery, onUpdate, userRole }) => {
+const GalleryManager = ({ gallery, onUpdate, userRole, phases }) => {
   const [modalState, setModalState] = useState({ isOpen: false, image: null });
   const [selectedImage, setSelectedImage] = useState(null);
 
@@ -119,6 +119,7 @@ const GalleryManager = ({ gallery, onUpdate, userRole }) => {
         onClose={() => setModalState({ isOpen: false, image: null })}
         onSubmit={handleSaveImage}
         image={modalState.image}
+        phases={phases}
       />
 
       <ImageViewModal image={selectedImage} onClose={() => setSelectedImage(null)} />

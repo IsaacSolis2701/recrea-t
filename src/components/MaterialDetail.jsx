@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { Tag, Ruler, ZoomIn, ImageOff } from 'lucide-react';
 
@@ -22,8 +23,10 @@ const MaterialDetail = ({ decision, onUpdate, userRole, onViewImage }) => {
     const approvedOption = options.find((option) => option.status === 'approved');
     return approvedOption ? approvedOption.id : options[0]?.id || null;
   });
+  const [showChangeForm, setShowChangeForm] = useState(false);
+  const [changeNote, setChangeNote] = useState('');
 
-  const isDecisionMade = decision.status === 'approved' || decision.status === 'rejected';
+  const isDecisionMade = decision.status === 'approved' || decision.status === 'rejected' || decision.status === 'cancelled';
 
   const handleSelectOption = (optionId) => {
     if (isDecisionMade) return;
@@ -49,9 +52,19 @@ const MaterialDetail = ({ decision, onUpdate, userRole, onViewImage }) => {
     toast({ title: 'Decisión guardada', description: 'Has aprobado la selección.' });
   };
 
-  const handleRequestChange = () => {
-    onUpdate({ ...decision, status: 'rejected' });
+  const handleSubmitChange = () => {
+    if (!changeNote.trim()) {
+      toast({
+        title: 'Descripción requerida',
+        description: 'Por favor, describe el cambio que solicitas antes de enviar.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    onUpdate({ ...decision, status: 'rejected', changeNote: changeNote.trim() });
     toast({ title: 'Cambio solicitado', description: 'Se ha notificado al administrador.' });
+    setShowChangeForm(false);
+    setChangeNote('');
   };
 
   return (
@@ -119,17 +132,61 @@ const MaterialDetail = ({ decision, onUpdate, userRole, onViewImage }) => {
       {decision.status === 'rejected' && (
         <div className="p-4 rounded-lg text-center bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
           <p className="font-semibold">Has solicitado un cambio para este material.</p>
+          {decision.changeNote && (
+            <p className="text-sm mt-2 italic">"{decision.changeNote}"</p>
+          )}
+        </div>
+      )}
+
+      {decision.status === 'cancelled' && (
+        <div className="p-4 rounded-lg text-center bg-gray-100 text-gray-600">
+          <p className="font-semibold">Este material ha sido cancelado automáticamente.</p>
         </div>
       )}
 
       {userRole === 'client' && decision.status === 'pending' && (
-        <div className="sticky bottom-20 space-y-2">
+        <div className="sticky bottom-20 space-y-3">
           <Button onClick={handleApprove} className="w-full h-12 text-base" disabled={!selectedOptionId}>
             Aprobar selección
           </Button>
-          <Button onClick={handleRequestChange} variant="outline" className="w-full h-12 text-base">
-            Solicitar cambio
-          </Button>
+
+          {!showChangeForm ? (
+            <Button
+              onClick={() => setShowChangeForm(true)}
+              variant="outline"
+              className="w-full h-12 text-base"
+            >
+              Solicitar cambio
+            </Button>
+          ) : (
+            <div className="space-y-2 p-4 rounded-xl border bg-card">
+              <p className="text-sm font-semibold text-foreground">Describe el cambio que necesitas:</p>
+              <Textarea
+                value={changeNote}
+                onChange={(e) => setChangeNote(e.target.value)}
+                placeholder="Explica qué cambio necesitas para este material..."
+                rows={3}
+                className="resize-none"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  className="flex-1"
+                  onClick={() => { setShowChangeForm(false); setChangeNote(''); }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleSubmitChange}
+                  disabled={!changeNote.trim()}
+                >
+                  Enviar solicitud
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Package, CheckCircle2, AlertTriangle, Edit } from 'lucide-react';
+import { ChevronRight, Package, CheckCircle2, AlertTriangle, Edit, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const MaterialList = ({ decisions, onSelectDecision, onEditDecision, userRole, gridLayout = false }) => {
@@ -33,6 +33,14 @@ const MaterialList = ({ decisions, onSelectDecision, onEditDecision, userRole, g
           </div>
         );
       }
+    if (decision.status === 'cancelled') {
+      return (
+        <div className="flex items-center gap-1 text-gray-400">
+          <Ban className="w-4 h-4" />
+          <span className="text-sm font-medium">Cancelado</span>
+        </div>
+      );
+    }
     return <span className="text-sm text-primary font-semibold">Pendiente</span>;
   }
 

@@ -4,10 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { uploadFile } from '@/lib/apiClient';
 
-const ImageFormModal = ({ isOpen, onClose, onSubmit, image }) => {
+const DEFAULT_PHASE_NAMES = [
+  'PreReforma',
+  'Inicio de Obra',
+  'Demolición',
+  'Tabiquería',
+  'Instalaciones',
+  'Acabados',
+  'Entrega',
+];
+
+const ImageFormModal = ({ isOpen, onClose, onSubmit, image, phases }) => {
   const [formData, setFormData] = useState({
     url: '',
     description: '',
@@ -15,6 +26,11 @@ const ImageFormModal = ({ isOpen, onClose, onSubmit, image }) => {
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Build phase options from project phases or use defaults
+  const phaseNames = phases && phases.length > 0
+    ? phases.map((p) => p.name)
+    : DEFAULT_PHASE_NAMES;
 
   useEffect(() => {
     if (image) {
@@ -27,7 +43,7 @@ const ImageFormModal = ({ isOpen, onClose, onSubmit, image }) => {
       setFormData({
         url: '',
         description: '',
-        phase: ''
+        phase: phaseNames[0] || ''
       });
     }
     setSelectedFile(null);
@@ -47,6 +63,15 @@ const ImageFormModal = ({ isOpen, onClose, onSubmit, image }) => {
       toast({
         title: 'Error',
         description: 'Por favor, adjunta una imagen o proporciona una URL.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!formData.phase) {
+      toast({
+        title: 'Error',
+        description: 'Por favor, selecciona la fase del proyecto.',
         variant: 'destructive'
       });
       return;
@@ -136,13 +161,21 @@ const ImageFormModal = ({ isOpen, onClose, onSubmit, image }) => {
 
           <div className="space-y-2">
             <Label htmlFor="phase">Fase del Proyecto</Label>
-            <Input
-              id="phase"
+            <Select
               value={formData.phase}
-              onChange={(event) => setFormData({ ...formData, phase: event.target.value })}
-              placeholder="Ej: Cimentación, Estructura, etc."
-              required
-            />
+              onValueChange={(value) => setFormData({ ...formData, phase: value })}
+            >
+              <SelectTrigger id="phase">
+                <SelectValue placeholder="Selecciona la fase..." />
+              </SelectTrigger>
+              <SelectContent>
+                {phaseNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
