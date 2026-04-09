@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(curl -L -o \"public/images/login-bg.jpg\" \"https://horizons-cdn.hostinger.com/9b0cae66-2e72-403d-843a-0fb70e93f72d/71c66f6d54eea1b1851bd032a988ad00.jpg\")",
+      "Bash(curl -L -o \"public/images/logo.png\" \"https://horizons-cdn.hostinger.com/9b0cae66-2e72-403d-843a-0fb70e93f72d/8877a48bde5c8ba74b0e1606613de701.png\")"
+    ]
+  }
+}
