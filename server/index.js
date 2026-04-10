@@ -69,6 +69,7 @@ const normalizeProjectRow = (project) => ({
 	certifications: safeJsonParse(project.certifications, []),
 	gallery: safeJsonParse(project.gallery, []),
 	materials: safeJsonParse(project.materials, []),
+	selected_categories: safeJsonParse(project.selected_categories, []),
 });
 
 const buildDefaultMaterialOptions = (material) => [
@@ -157,6 +158,7 @@ const toProjectPayload = (payload) => {
 	const budgets = Array.isArray(payload.budgets) ? payload.budgets : [];
 	const gallery = Array.isArray(payload.gallery) ? payload.gallery : [];
 	const materials = Array.isArray(payload.materials) ? payload.materials : [];
+	const selectedCategories = Array.isArray(payload.selected_categories) ? payload.selected_categories : [];
 	const completedPhases = phases.filter((phase) => phase.status === 'completed').length;
 	const progress = phases.length > 0 ? Math.round((completedPhases / phases.length) * 100) : Number(payload.progress || 0);
 
@@ -177,6 +179,7 @@ const toProjectPayload = (payload) => {
 		certifications: JSON.stringify(certifications),
 		gallery: JSON.stringify(gallery),
 		materials: JSON.stringify(materials),
+		selected_categories: JSON.stringify(selectedCategories),
 	};
 };
 
@@ -460,7 +463,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 	res.json({ user: req.user });
 });
 
-app.patch('/api/auth/profile', authMiddleware, async (req, res) => {
+app.patch('/api/auth/profile', authMiddleware, requireRole('admin'), async (req, res) => {
 	const userId = req.user.id;
 	const name = String(req.body?.name || '').trim();
 	const email = String(req.body?.email || '').trim();
@@ -482,6 +485,107 @@ app.patch('/api/auth/profile', authMiddleware, async (req, res) => {
 		}
 		throw error;
 	}
+});
+
+app.post('/api/profile-change-requests', authMiddleware, async (req, res) => {
+	const userId = req.user.id;
+	const name = String(req.body?.name || '').trim() || null;
+	const email = String(req.body?.email || '').trim() || null;
+
+	if (!name && !email) {
+		return res.status(400).json({ message: 'Debes indicar al menos un campo a cambiar.' });
+	}
+
+	// Cancel any existing pending request for this user
+	await pool.execute(
+		"DELETE FROM profile_change_requests WHERE user_id = ? AND status = 'pending'",
+		[userId],
+	);
+
+	const id = uuidv4();
+	await pool.execute(
+		`INSERT INTO profile_change_requests (id, user_id, requested_name, requested_email, status)
+		 VALUES (?, ?, ?, ?, 'pending')`,
+		[id, userId, name, email],
+	);
+
+	return res.status(201).json({ message: 'Solicitud enviada. Un administrador la revisará pronto.' });
+});
+
+app.get('/api/profile-change-requests', authMiddleware, requireRole('admin'), async (_req, res) => {
+	const [rows] = await pool.execute(
+		`SELECT r.*, u.name AS current_name, u.email AS current_email, u.username
+		 FROM profile_change_requests r
+		 LEFT JOIN app_users u ON u.id = r.user_id
+		 WHERE r.status = 'pending'
+		 ORDER BY r.created_at ASC`,
+	);
+	res.json({ requests: rows });
+});
+
+app.patch('/api/profile-change-requests/:id/approve', authMiddleware, requireRole('admin'), async (req, res) => {
+	const requestId = String(req.params.id || '').trim();
+
+	const [rows] = await pool.execute(
+		"SELECT * FROM profile_change_requests WHERE id = ? AND status = 'pending'",
+		[requestId],
+	);
+
+	if (rows.length === 0) {
+		return res.status(404).json({ message: 'Solicitud no encontrada o ya procesada.' });
+	}
+
+	const request = rows[0];
+	const updates = [];
+	const params = [];
+
+	if (request.requested_name) {
+		updates.push('name = ?');
+		params.push(request.requested_name);
+	}
+	if (request.requested_email) {
+		updates.push('email = ?');
+		params.push(request.requested_email);
+	}
+
+	if (updates.length > 0) {
+		try {
+			params.push(request.user_id);
+			await pool.execute(`UPDATE app_users SET ${updates.join(', ')} WHERE id = ?`, params);
+		} catch (error) {
+			if (error.code === 'ER_DUP_ENTRY') {
+				return res.status(409).json({ message: 'El email ya está en uso por otro usuario.' });
+			}
+			throw error;
+		}
+	}
+
+	await pool.execute(
+		"UPDATE profile_change_requests SET status = 'approved', reviewed_at = NOW() WHERE id = ?",
+		[requestId],
+	);
+
+	const [userRows] = await pool.execute(
+		'SELECT id, name, username, email, role FROM app_users WHERE id = ?',
+		[request.user_id],
+	);
+
+	res.json({ message: 'Solicitud aprobada.', user: sanitizeUser(userRows[0]) });
+});
+
+app.patch('/api/profile-change-requests/:id/reject', authMiddleware, requireRole('admin'), async (req, res) => {
+	const requestId = String(req.params.id || '').trim();
+
+	const [result] = await pool.execute(
+		"UPDATE profile_change_requests SET status = 'rejected', reviewed_at = NOW() WHERE id = ? AND status = 'pending'",
+		[requestId],
+	);
+
+	if (result.affectedRows === 0) {
+		return res.status(404).json({ message: 'Solicitud no encontrada o ya procesada.' });
+	}
+
+	res.json({ message: 'Solicitud rechazada.' });
 });
 
 app.patch('/api/auth/password', authMiddleware, async (req, res) => {
@@ -558,6 +662,7 @@ app.put('/api/users/:id', authMiddleware, requireRole('admin'), async (req, res)
 	const username = String(req.body?.username || '').trim();
 	const email = String(req.body?.email || '').trim();
 	const password = String(req.body?.password || '').trim();
+	const role = req.body?.role === 'admin' ? 'admin' : 'client';
 
 	if (!name || !username || !email) {
 		return res.status(400).json({ message: 'Nombre, usuario y email son obligatorios.' });
@@ -567,13 +672,13 @@ app.put('/api/users/:id', authMiddleware, requireRole('admin'), async (req, res)
 		if (password) {
 			const passwordHash = await bcrypt.hash(password, 10);
 			await pool.execute(
-				'UPDATE app_users SET name = ?, username = ?, email = ?, password_hash = ? WHERE id = ?',
-				[name, username, email, passwordHash, userId],
+				'UPDATE app_users SET name = ?, username = ?, email = ?, password_hash = ?, role = ? WHERE id = ?',
+				[name, username, email, passwordHash, role, userId],
 			);
 		} else {
 			await pool.execute(
-				'UPDATE app_users SET name = ?, username = ?, email = ? WHERE id = ?',
-				[name, username, email, userId],
+				'UPDATE app_users SET name = ?, username = ?, email = ?, role = ? WHERE id = ?',
+				[name, username, email, role, userId],
 			);
 		}
 
@@ -630,8 +735,8 @@ app.post('/api/projects', authMiddleware, requireRole('admin'), async (req, res)
 	await pool.execute(
 		`INSERT INTO projects (
 			id, name, description, location, start_date, estimated_delivery, status, progress,
-			client_id, client_name, phases, invoices, budgets, certifications, gallery, materials
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			client_id, client_name, phases, invoices, budgets, certifications, gallery, materials, selected_categories
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			payload.id,
 			payload.name,
@@ -649,6 +754,7 @@ app.post('/api/projects', authMiddleware, requireRole('admin'), async (req, res)
 			payload.certifications,
 			payload.gallery,
 			payload.materials,
+			payload.selected_categories,
 		],
 	);
 
@@ -698,7 +804,7 @@ app.put('/api/projects/:id', authMiddleware, async (req, res) => {
 		`UPDATE projects SET
 			name = ?, description = ?, location = ?, start_date = ?, estimated_delivery = ?, status = ?,
 			progress = ?, client_id = ?, client_name = ?, phases = ?, invoices = ?, budgets = ?,
-			certifications = ?, gallery = ?, materials = ?
+			certifications = ?, gallery = ?, materials = ?, selected_categories = ?
 		WHERE id = ?`,
 		[
 			payload.name,
@@ -716,6 +822,7 @@ app.put('/api/projects/:id', authMiddleware, async (req, res) => {
 			payload.certifications,
 			payload.gallery,
 			payload.materials,
+			payload.selected_categories,
 			payload.id,
 		],
 	);
@@ -861,12 +968,30 @@ app.get('/api/materials-catalog', authMiddleware, async (_req, res) => {
 
 app.post('/api/materials-catalog', authMiddleware, requireRole('admin'), async (req, res) => {
 	const id = uuidv4();
+
+	// Resolve category_id from name if not provided, auto-creating the category if needed
+	let categoryId = req.body?.category_id || null;
+	const categoryName = req.body?.category || null;
+	if (!categoryId && categoryName) {
+		const [catRows] = await pool.execute('SELECT id FROM categories WHERE name = ? LIMIT 1', [categoryName]);
+		if (catRows.length > 0) {
+			categoryId = catRows[0].id;
+		} else {
+			categoryId = uuidv4();
+			await pool.execute(
+				'INSERT INTO categories (id, name, description) VALUES (?, ?, ?)',
+				[categoryId, categoryName, ''],
+			);
+		}
+	}
+
 	const material = {
 		id,
 		name: req.body?.name,
 		description: req.body?.description || '',
-		category_id: req.body?.category_id || null,
-		category: req.body?.category || null,
+		category_id: categoryId,
+		category: categoryName,
+		subcategory: req.body?.subcategory || null,
 		price: Number(req.body?.price || 0),
 		brand: req.body?.brand || '',
 		format: req.body?.format || '',
@@ -876,14 +1001,15 @@ app.post('/api/materials-catalog', authMiddleware, requireRole('admin'), async (
 
 	await pool.execute(
 		`INSERT INTO materials_catalog (
-			id, name, description, category_id, category, price, brand, format, image_url, ambiance_image_url
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, name, description, category_id, category, subcategory, price, brand, format, image_url, ambiance_image_url
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			material.id,
 			material.name,
 			material.description,
 			material.category_id,
 			material.category,
+			material.subcategory,
 			material.price,
 			material.brand,
 			material.format,
@@ -897,16 +1023,33 @@ app.post('/api/materials-catalog', authMiddleware, requireRole('admin'), async (
 });
 
 app.put('/api/materials-catalog/:id', authMiddleware, requireRole('admin'), async (req, res) => {
+	// Resolve category_id from name if not provided, auto-creating the category if needed
+	let categoryId = req.body?.category_id || null;
+	const categoryName = req.body?.category || null;
+	if (!categoryId && categoryName) {
+		const [catRows] = await pool.execute('SELECT id FROM categories WHERE name = ? LIMIT 1', [categoryName]);
+		if (catRows.length > 0) {
+			categoryId = catRows[0].id;
+		} else {
+			categoryId = uuidv4();
+			await pool.execute(
+				'INSERT INTO categories (id, name, description) VALUES (?, ?, ?)',
+				[categoryId, categoryName, ''],
+			);
+		}
+	}
+
 	await pool.execute(
 		`UPDATE materials_catalog SET
-			name = ?, description = ?, category_id = ?, category = ?, price = ?, brand = ?, format = ?,
+			name = ?, description = ?, category_id = ?, category = ?, subcategory = ?, price = ?, brand = ?, format = ?,
 			image_url = ?, ambiance_image_url = ?
 		WHERE id = ?`,
 		[
 			req.body?.name,
 			req.body?.description || '',
-			req.body?.category_id || null,
-			req.body?.category || null,
+			categoryId,
+			categoryName,
+			req.body?.subcategory || null,
 			Number(req.body?.price || 0),
 			req.body?.brand || '',
 			req.body?.format || '',
@@ -949,6 +1092,55 @@ app.get('/api/payments', authMiddleware, async (req, res) => {
 	}));
 
 	res.json({ payments });
+});
+
+app.get('/api/certifications', authMiddleware, requireRole('admin'), async (_req, res) => {
+	const [projects] = await pool.execute(
+		`SELECT p.id, p.name AS project_name, p.client_id, p.certifications,
+		 u.name AS client_name
+		 FROM projects p
+		 LEFT JOIN app_users u ON u.id = p.client_id`,
+	);
+
+	const [paymentRows] = await pool.execute(
+		`SELECT project_id, certification_id, amount, payment_date, transaction_reference FROM payments`,
+	);
+
+	const paymentMap = new Map();
+	for (const pay of paymentRows) {
+		paymentMap.set(`${pay.project_id}__${pay.certification_id}`, pay);
+	}
+
+	const allCertifications = [];
+	for (const project of projects) {
+		const certs = safeJsonParse(project.certifications, []);
+		for (const cert of certs) {
+			const payRecord = paymentMap.get(`${project.id}__${cert.id}`);
+			allCertifications.push({
+				id: cert.id,
+				name: cert.name || cert.number || 'Certificación',
+				type: cert.type || '',
+				number: cert.number || '',
+				amount: cert.amount || 0,
+				is_paid: !!cert.isPaid,
+				expiry_date: cert.expiryDate || null,
+				project_id: project.id,
+				project_name: project.project_name,
+				client_id: project.client_id,
+				client_name: project.client_name,
+				payment_date: payRecord?.payment_date || null,
+				transaction_reference: payRecord?.transaction_reference || null,
+			});
+		}
+	}
+
+	allCertifications.sort((a, b) => {
+		if (a.is_paid !== b.is_paid) return a.is_paid ? 1 : -1;
+		if (a.expiry_date && b.expiry_date) return new Date(a.expiry_date) - new Date(b.expiry_date);
+		return 0;
+	});
+
+	res.json({ certifications: allCertifications });
 });
 
 app.post('/api/payments/checkout-session', authMiddleware, async (req, res) => {
@@ -1100,6 +1292,77 @@ app.post('/api/reminders/send', authMiddleware, requireRole('admin'), async (_re
 	}
 
 	res.json({ updated: pendingRows.length, sent, errors });
+});
+
+app.post('/api/reminders/:id/send', authMiddleware, requireRole('admin'), async (req, res) => {
+	const reminderId = String(req.params.id || '').trim();
+
+	const [rows] = await pool.execute(
+		`SELECT r.*, u.name AS client_name, u.email AS client_email, p.name AS project_name
+		 FROM reminders r
+		 LEFT JOIN app_users u ON u.id = r.client_id
+		 LEFT JOIN projects p ON p.id = r.project_id
+		 WHERE r.id = ?`,
+		[reminderId],
+	);
+
+	if (rows.length === 0) {
+		return res.status(404).json({ message: 'Recordatorio no encontrado.' });
+	}
+
+	const reminder = rows[0];
+
+	if (!reminder.client_email) {
+		return res.status(400).json({ message: 'El cliente no tiene email registrado.' });
+	}
+
+	const reminderDate = new Date(reminder.reminder_date + 'T12:00:00').toLocaleDateString('es-ES', {
+		day: '2-digit', month: 'long', year: 'numeric',
+	});
+
+	await emailTransporter.sendMail({
+		from: `"ReCrea-T" <${config.email.from}>`,
+		to: reminder.client_email,
+		subject: `Recordatorio de pago: ${reminder.certification_name || 'Certificación'}`,
+		html: `
+			<div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; color: #111;">
+				<div style="background: #b3c1b3; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+					<h1 style="margin: 0; color: white; font-size: 22px;">ReCrea-T</h1>
+					<p style="margin: 4px 0 0; color: rgba(255,255,255,0.85); font-size: 13px;">Reforme Disfrutando</p>
+				</div>
+				<div style="background: white; padding: 32px; border: 1px solid #eee; border-radius: 0 0 12px 12px;">
+					<p style="margin: 0 0 16px; font-size: 16px;">Hola <strong>${reminder.client_name || 'cliente'}</strong>,</p>
+					<p style="margin: 0 0 24px; color: #555; line-height: 1.6;">
+						Te recordamos que tienes un pago pendiente para la siguiente certificación de tu obra:
+					</p>
+					<div style="background: #f5f5f3; border-radius: 10px; padding: 20px 24px; margin-bottom: 24px;">
+						<p style="margin: 0 0 8px;"><strong>Certificación:</strong> ${reminder.certification_name || reminder.certification_id}</p>
+						${reminder.project_name ? `<p style="margin: 0 0 8px;"><strong>Obra:</strong> ${reminder.project_name}</p>` : ''}
+						<p style="margin: 0;"><strong>Fecha recordatorio:</strong> ${reminderDate}</p>
+					</div>
+					<p style="margin: 0 0 24px; color: #555; line-height: 1.6;">
+						Accede a tu portal para gestionar el pago o ponerte en contacto con nosotros.
+					</p>
+					<p style="margin: 0; color: #999; font-size: 12px;">
+						Este mensaje ha sido enviado automáticamente por ReCrea-T. Por favor, no respondas a este correo.
+					</p>
+				</div>
+			</div>
+		`,
+	});
+
+	await pool.execute(
+		"UPDATE reminders SET status = 'sent', sent_at = NOW() WHERE id = ?",
+		[reminderId],
+	);
+
+	const [updatedRows] = await pool.execute(
+		`SELECT r.*, u.name AS client_name FROM reminders r LEFT JOIN app_users u ON u.id = r.client_id WHERE r.id = ?`,
+		[reminderId],
+	);
+
+	const updated = updatedRows[0];
+	res.json({ reminder: { ...updated, app_users: updated?.client_name ? { name: updated.client_name } : null } });
 });
 
 app.get('/api/pdfs', authMiddleware, async (req, res) => {

@@ -115,6 +115,8 @@ const ProjectDetail = ({ project, onBack, onUpdate, onDelete, onEdit, userRole, 
           materials={project.materials}
           onUpdate={(newMaterials) => handleUpdate('materials', newMaterials)}
           userRole={userRole}
+          selectedCategories={project.selected_categories || []}
+          onCategoriesUpdate={(newCategories) => handleUpdate('selected_categories', newCategories)}
         />
       ),
     },

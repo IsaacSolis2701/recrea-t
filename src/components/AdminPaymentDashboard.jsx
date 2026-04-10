@@ -6,45 +6,71 @@ import { CheckCircle, Clock, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 const AdminPaymentDashboard = () => {
-  const [payments, setPayments] = useState([]);
+  const [certifications, setCertifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
-    fetchPayments();
+    fetchCertifications();
   }, []);
 
-  const fetchPayments = async () => {
+  const fetchCertifications = async () => {
     try {
       setLoading(true);
-      const response = await apiRequest('/payments');
-      setPayments(response.payments || []);
+      const response = await apiRequest('/certifications');
+      setCertifications(response.certifications || []);
     } catch (error) {
-      console.error('Error fetching payments:', error);
+      console.error('Error fetching certifications:', error);
       toast({ title: 'Error', description: 'No se pudieron cargar los pagos', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredPayments = payments.filter(p => 
-    p.app_users?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.certification_id?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = certifications.filter((c) => {
+    const matchesSearch =
+      c.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.project_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter =
+      filter === 'all' ||
+      (filter === 'paid' && c.is_paid) ||
+      (filter === 'pending' && !c.is_paid);
+    return matchesSearch && matchesFilter;
+  });
+
+  const pendingCount = certifications.filter((c) => !c.is_paid).length;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold">Control de Pagos</h2>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            type="text" 
-            placeholder="Buscar cliente o cert..." 
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div>
+          <h2 className="text-2xl font-bold">Control de Pagos</h2>
+          {pendingCount > 0 && (
+            <p className="text-sm text-yellow-600 mt-0.5">{pendingCount} certificación{pendingCount !== 1 ? 'es' : ''} pendiente{pendingCount !== 1 ? 's' : ''} de pago</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar cliente, obra o cert..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm bg-background"
+          >
+            <option value="all">Todos</option>
+            <option value="pending">Pendientes</option>
+            <option value="paid">Pagados</option>
+          </select>
         </div>
       </div>
 
@@ -52,28 +78,32 @@ const AdminPaymentDashboard = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Fecha</TableHead>
               <TableHead>Cliente</TableHead>
+              <TableHead>Proyecto</TableHead>
               <TableHead>Certificación</TableHead>
-              <TableHead>Monto</TableHead>
+              <TableHead>Importe</TableHead>
+              <TableHead>Vencimiento</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Transacción</TableHead>
+              <TableHead>Fecha pago</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8">Cargando...</TableCell></TableRow>
-            ) : filteredPayments.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8">No se encontraron pagos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No se encontraron certificaciones</TableCell></TableRow>
             ) : (
-              filteredPayments.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell>{new Date(payment.payment_date).toLocaleDateString('es-ES')}</TableCell>
-                  <TableCell className="font-medium">{payment.app_users?.name || 'Usuario Eliminado'}</TableCell>
-                  <TableCell>#{payment.certification_id}</TableCell>
-                  <TableCell className="font-semibold">{Number(payment.amount).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</TableCell>
+              filtered.map((cert) => (
+                <TableRow key={`${cert.project_id}-${cert.id}`} className={!cert.is_paid ? 'bg-yellow-500/5' : ''}>
+                  <TableCell className="font-medium">{cert.client_name || '—'}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{cert.project_name || '—'}</TableCell>
+                  <TableCell>{cert.name}{cert.number ? <span className="text-xs text-muted-foreground ml-1">#{cert.number}</span> : null}</TableCell>
+                  <TableCell className="font-semibold">{Number(cert.amount).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</TableCell>
+                  <TableCell className="text-sm">
+                    {cert.expiry_date ? new Date(cert.expiry_date + 'T12:00:00').toLocaleDateString('es-ES') : '—'}
+                  </TableCell>
                   <TableCell>
-                    {payment.status === 'paid' ? (
+                    {cert.is_paid ? (
                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-600 text-xs font-medium">
                         <CheckCircle className="w-3 h-3" /> Pagado
                       </span>
@@ -83,8 +113,8 @@ const AdminPaymentDashboard = () => {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {payment.transaction_reference ? payment.transaction_reference.slice(-8) : '-'}
+                  <TableCell className="text-sm text-muted-foreground">
+                    {cert.payment_date ? new Date(cert.payment_date).toLocaleDateString('es-ES') : '—'}
                   </TableCell>
                 </TableRow>
               ))

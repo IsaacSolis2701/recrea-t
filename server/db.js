@@ -191,9 +191,38 @@ export const initDatabase = async () => {
 		)
 	`);
 
+	await db.query(`
+		CREATE TABLE IF NOT EXISTS profile_change_requests (
+			id CHAR(36) NOT NULL PRIMARY KEY,
+			user_id CHAR(36) NOT NULL,
+			requested_name VARCHAR(255) NULL,
+			requested_email VARCHAR(255) NULL,
+			status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+			reviewed_at DATETIME NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			CONSTRAINT fk_pcr_user FOREIGN KEY (user_id) REFERENCES app_users(id) ON DELETE CASCADE
+		)
+	`);
+
 	await ensureColumnExists(db, 'pdfs', 'project_id', 'CHAR(36) NULL');
 	await ensureColumnExists(db, 'pdfs', 'client_id', 'CHAR(36) NULL');
 	await ensureColumnExists(db, 'materials_catalog', 'subcategory', 'VARCHAR(255) NULL');
+	await ensureColumnExists(db, 'projects', 'selected_categories', 'JSON NULL');
+
+	// Migration: set category_id for existing materials that only have a category name string
+	const [matsToFix] = await db.query(
+		'SELECT id, category FROM materials_catalog WHERE category_id IS NULL AND category IS NOT NULL AND category != ""',
+	);
+	for (const mat of matsToFix) {
+		const [catRows] = await db.query(
+			'SELECT id FROM categories WHERE name = ? LIMIT 1',
+			[mat.category],
+		);
+		if (catRows.length > 0) {
+			await db.query('UPDATE materials_catalog SET category_id = ? WHERE id = ?', [catRows[0].id, mat.id]);
+		}
+	}
 };
 
 export const closePool = async () => {
