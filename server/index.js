@@ -490,10 +490,16 @@ app.patch('/api/auth/profile', authMiddleware, requireRole('admin'), async (req,
 app.post('/api/profile-change-requests', authMiddleware, async (req, res) => {
 	const userId = req.user.id;
 	const name = String(req.body?.name || '').trim() || null;
+	const username = String(req.body?.username || '').trim() || null;
 	const email = String(req.body?.email || '').trim() || null;
+	const newPassword = String(req.body?.password || '').trim() || null;
 
-	if (!name && !email) {
+	if (!name && !username && !email && !newPassword) {
 		return res.status(400).json({ message: 'Debes indicar al menos un campo a cambiar.' });
+	}
+
+	if (newPassword && newPassword.length < 6) {
+		return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres.' });
 	}
 
 	// Cancel any existing pending request for this user
@@ -504,9 +510,9 @@ app.post('/api/profile-change-requests', authMiddleware, async (req, res) => {
 
 	const id = uuidv4();
 	await pool.execute(
-		`INSERT INTO profile_change_requests (id, user_id, requested_name, requested_email, status)
-		 VALUES (?, ?, ?, ?, 'pending')`,
-		[id, userId, name, email],
+		`INSERT INTO profile_change_requests (id, user_id, requested_name, requested_username, requested_email, requested_password, status)
+		 VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+		[id, userId, name, username, email, newPassword],
 	);
 
 	return res.status(201).json({ message: 'Solicitud enviada. Un administrador la revisará pronto.' });
@@ -514,7 +520,7 @@ app.post('/api/profile-change-requests', authMiddleware, async (req, res) => {
 
 app.get('/api/profile-change-requests', authMiddleware, requireRole('admin'), async (_req, res) => {
 	const [rows] = await pool.execute(
-		`SELECT r.*, u.name AS current_name, u.email AS current_email, u.username
+		`SELECT r.*, u.name AS current_name, u.email AS current_email, u.username AS current_username
 		 FROM profile_change_requests r
 		 LEFT JOIN app_users u ON u.id = r.user_id
 		 WHERE r.status = 'pending'
@@ -543,9 +549,18 @@ app.patch('/api/profile-change-requests/:id/approve', authMiddleware, requireRol
 		updates.push('name = ?');
 		params.push(request.requested_name);
 	}
+	if (request.requested_username) {
+		updates.push('username = ?');
+		params.push(request.requested_username);
+	}
 	if (request.requested_email) {
 		updates.push('email = ?');
 		params.push(request.requested_email);
+	}
+	if (request.requested_password) {
+		const passwordHash = await bcrypt.hash(request.requested_password, 10);
+		updates.push('password_hash = ?');
+		params.push(passwordHash);
 	}
 
 	if (updates.length > 0) {
@@ -554,7 +569,7 @@ app.patch('/api/profile-change-requests/:id/approve', authMiddleware, requireRol
 			await pool.execute(`UPDATE app_users SET ${updates.join(', ')} WHERE id = ?`, params);
 		} catch (error) {
 			if (error.code === 'ER_DUP_ENTRY') {
-				return res.status(409).json({ message: 'El email ya está en uso por otro usuario.' });
+				return res.status(409).json({ message: 'El email o usuario ya está en uso por otra cuenta.' });
 			}
 			throw error;
 		}
@@ -570,7 +585,51 @@ app.patch('/api/profile-change-requests/:id/approve', authMiddleware, requireRol
 		[request.user_id],
 	);
 
-	res.json({ message: 'Solicitud aprobada.', user: sanitizeUser(userRows[0]) });
+	const updatedUser = sanitizeUser(userRows[0]);
+
+	// Send confirmation email to the client
+	try {
+		const changesHtml = [
+			request.requested_name ? `<p style="margin:0 0 6px"><strong>Nombre:</strong> ${request.requested_name}</p>` : '',
+			request.requested_username ? `<p style="margin:0 0 6px"><strong>Usuario de acceso:</strong> ${request.requested_username}</p>` : '',
+			request.requested_email ? `<p style="margin:0 0 6px"><strong>Email:</strong> ${request.requested_email}</p>` : '',
+			request.requested_password ? `<p style="margin:0 0 6px"><strong>Contraseña:</strong> ${request.requested_password}</p>` : '',
+		].filter(Boolean).join('');
+
+		await emailTransporter.sendMail({
+			from: `"ReCrea-T" <${config.email.from}>`,
+			to: updatedUser.email,
+			subject: 'Tus datos han sido actualizados — ReCrea-T',
+			html: `
+				<div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; color: #111;">
+					<div style="background: #b3c1b3; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+						<h1 style="margin: 0; color: white; font-size: 22px;">ReCrea-T</h1>
+						<p style="margin: 4px 0 0; color: rgba(255,255,255,0.85); font-size: 13px;">Reforme Disfrutando</p>
+					</div>
+					<div style="background: white; padding: 32px; border: 1px solid #eee; border-radius: 0 0 12px 12px;">
+						<p style="margin: 0 0 16px; font-size: 16px;">Hola <strong>${updatedUser.name}</strong>,</p>
+						<p style="margin: 0 0 24px; color: #555; line-height: 1.6;">
+							Tu solicitud de cambio de datos ha sido <strong>aprobada</strong>. Tus nuevos datos de acceso son:
+						</p>
+						<div style="background: #f5f5f3; border-radius: 10px; padding: 20px 24px; margin-bottom: 24px;">
+							<p style="margin:0 0 6px"><strong>Usuario:</strong> ${updatedUser.username}</p>
+							${changesHtml}
+						</div>
+						<p style="margin: 0 0 24px; color: #555; line-height: 1.6;">
+							Puedes acceder a tu portal con estas credenciales. Si no has solicitado estos cambios, contacta con nosotros de inmediato.
+						</p>
+						<p style="margin: 0; color: #999; font-size: 12px;">
+							Este mensaje ha sido enviado automáticamente por ReCrea-T. Por favor, no respondas a este correo.
+						</p>
+					</div>
+				</div>
+			`,
+		});
+	} catch (emailError) {
+		console.error('Error sending approval email:', emailError.message);
+	}
+
+	res.json({ message: 'Solicitud aprobada.', user: updatedUser });
 });
 
 app.patch('/api/profile-change-requests/:id/reject', authMiddleware, requireRole('admin'), async (req, res) => {

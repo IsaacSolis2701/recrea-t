@@ -235,17 +235,27 @@ const UserManagement = ({ users, onUsersUpdate, projects }) => {
               {changeRequests.map((req) => (
                 <div key={req.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="font-medium">{req.current_name} <span className="text-xs text-muted-foreground">(@{req.username})</span></p>
+                    <p className="font-medium">{req.current_name} <span className="text-xs text-muted-foreground">(@{req.current_username})</span></p>
                     <p className="text-sm text-muted-foreground">Email actual: {req.current_email}</p>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {req.requested_name && req.requested_name !== req.current_name && (
+                      {req.requested_name && (
                         <span className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">
                           Nombre → <strong>{req.requested_name}</strong>
                         </span>
                       )}
-                      {req.requested_email && req.requested_email !== req.current_email && (
+                      {req.requested_username && (
+                        <span className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">
+                          Usuario → <strong>{req.requested_username}</strong>
+                        </span>
+                      )}
+                      {req.requested_email && (
                         <span className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">
                           Email → <strong>{req.requested_email}</strong>
+                        </span>
+                      )}
+                      {req.requested_password && (
+                        <span className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">
+                          Contraseña → <strong>nueva contraseña solicitada</strong>
                         </span>
                       )}
                     </div>

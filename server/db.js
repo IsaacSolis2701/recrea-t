@@ -205,6 +205,9 @@ export const initDatabase = async () => {
 		)
 	`);
 
+	await ensureColumnExists(db, 'profile_change_requests', 'requested_password', 'VARCHAR(255) NULL');
+	await ensureColumnExists(db, 'profile_change_requests', 'requested_username', 'VARCHAR(100) NULL');
+
 	await ensureColumnExists(db, 'pdfs', 'project_id', 'CHAR(36) NULL');
 	await ensureColumnExists(db, 'pdfs', 'client_id', 'CHAR(36) NULL');
 	await ensureColumnExists(db, 'materials_catalog', 'subcategory', 'VARCHAR(255) NULL');
