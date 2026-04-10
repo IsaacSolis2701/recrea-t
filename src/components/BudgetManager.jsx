@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ClipboardList, Plus, Eye, Edit, FileUp, Download } from 'lucide-react';
+import { ClipboardList, Plus, Eye, Edit, FileUp, Download, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import PDFViewerModal from '@/components/PDFViewerModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const downloadFile = async (fileUrl, fileName) => {
   try {
@@ -24,6 +34,14 @@ const downloadFile = async (fileUrl, fileName) => {
 
 const BudgetManager = ({ budgets, onUpdate, userRole, onAddBudget, onEditBudget }) => {
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const handleDeleteBudget = () => {
+    const updated = budgets.filter((b) => b.id !== deleteTarget.id);
+    onUpdate(updated);
+    setDeleteTarget(null);
+    toast({ title: 'Presupuesto eliminado', description: 'El presupuesto ha sido eliminado correctamente.' });
+  };
 
   const handlePreview = (doc) => {
     if (doc.fileUrl) {
@@ -126,6 +144,17 @@ const BudgetManager = ({ budgets, onUpdate, userRole, onAddBudget, onEditBudget 
                           Editar
                         </Button>
                       )}
+                      {userRole === 'admin' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteTarget(budget)}
+                          className="flex-1 sm:flex-initial h-auto p-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Eliminar
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -141,6 +170,24 @@ const BudgetManager = ({ budgets, onUpdate, userRole, onAddBudget, onEditBudget 
         pdfUrl={previewDoc?.fileUrl || ''}
         filename={previewDoc?.file || previewDoc?.title || 'Presupuesto'}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="bg-card border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar presupuesto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente el presupuesto
+              <span className="font-semibold text-foreground"> "{deleteTarget?.title}"</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBudget} className="bg-red-600 hover:bg-red-700 text-white">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

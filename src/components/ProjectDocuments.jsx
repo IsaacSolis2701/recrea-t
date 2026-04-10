@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Plus, Eye, Edit, FileUp, Download } from 'lucide-react';
+import { FileText, Plus, Eye, Edit, FileUp, Download, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import AddInvoiceModal from '@/components/AddInvoiceModal';
 import AddBudgetModal from '@/components/AddBudgetModal';
 import AddCertificationModal from '@/components/AddCertificationModal';
@@ -15,6 +25,15 @@ import PDFViewerModal from '@/components/PDFViewerModal';
 const ProjectDocuments = ({ projectId, invoices, certifications, budgets, onUpdate, userRole, onNavigateToPayment }) => {
   const [modal, setModal] = useState({ type: null, isOpen: false, data: null });
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const handleDeleteItem = () => {
+    const { type, item } = deleteTarget;
+    const currentItems = (type === 'invoices' ? invoices : type === 'budgets' ? budgets : certifications) || [];
+    onUpdate(type, currentItems.filter((i) => i.id !== item.id));
+    setDeleteTarget(null);
+    toast({ title: 'Documento eliminado', description: 'El documento ha sido eliminado correctamente.' });
+  };
 
   const handleOpenModal = (type, data = null) => {
     setModal({ type, isOpen: true, data });
@@ -127,6 +146,16 @@ const ProjectDocuments = ({ projectId, invoices, certifications, budgets, onUpda
                   <Edit className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Editar</span>
                 </Button>
               )}
+              {userRole === 'admin' && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDeleteTarget({ type, item: doc })}
+                  className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Eliminar</span>
+                </Button>
+              )}
             </div>
           </div>
         ))
@@ -187,6 +216,16 @@ const ProjectDocuments = ({ projectId, invoices, certifications, budgets, onUpda
                       <Edit className="w-4 h-4 mr-2" />Editar
                     </Button>
                   )}
+                  {userRole === 'admin' && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeleteTarget({ type: 'budgets', item: mainBudget })}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />Eliminar
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -203,7 +242,7 @@ const ProjectDocuments = ({ projectId, invoices, certifications, budgets, onUpda
             onUpdate('budgets', allBudgets);
           }}
           userRole={userRole}
-          onAddBudget={(data) => handleSave('budgets', data)}
+          onAddBudget={() => handleOpenModal('budgets')}
           onEditBudget={(data) => handleOpenModal('budgets', data)}
         />
       </div>
@@ -237,6 +276,24 @@ const ProjectDocuments = ({ projectId, invoices, certifications, budgets, onUpda
         pdfUrl={previewDoc?.fileUrl || ''}
         filename={previewDoc?.file || previewDoc?.title || previewDoc?.number || previewDoc?.name || 'Documento'}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="bg-card border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente
+              <span className="font-semibold text-foreground"> "{deleteTarget?.item?.name || deleteTarget?.item?.number || deleteTarget?.item?.title}"</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteItem} className="bg-red-600 hover:bg-red-700 text-white">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
