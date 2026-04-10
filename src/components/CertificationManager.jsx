@@ -1,11 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Award, Plus, Calendar, FileCheck, Download, Eye, AlertCircle, CheckCircle, CreditCard, Clock, Unlock, Lock } from 'lucide-react';
+import { Award, Plus, Calendar, FileCheck, Download, Eye, AlertCircle, CheckCircle, CreditCard, Clock, Unlock, Lock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import AddCertificationModal from '@/components/AddCertificationModal';
 import PDFViewerModal from '@/components/PDFViewerModal';
 import { apiRequest } from '@/lib/apiClient';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const downloadFile = async (fileUrl, fileName) => {
   try {
@@ -27,6 +37,14 @@ const downloadFile = async (fileUrl, fileName) => {
 const CertificationManager = ({ projectId, certifications, onUpdate, userRole, onPayCertification }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const handleDeleteCertification = () => {
+    const updated = certifications.filter((c) => c.id !== deleteTarget.id);
+    onUpdate(updated);
+    setDeleteTarget(null);
+    toast({ title: 'Certificación eliminada', description: 'La certificación ha sido eliminada correctamente.' });
+  };
 
   const handleAddCertification = (certData) => {
     const newCert = {
@@ -192,6 +210,17 @@ const CertificationManager = ({ projectId, certifications, onUpdate, userRole, o
                         >
                           <Download className="w-4 h-4" />
                         </Button>
+                        {userRole === 'admin' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setDeleteTarget(cert)}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            title="Eliminar certificación"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
 
@@ -301,6 +330,24 @@ const CertificationManager = ({ projectId, certifications, onUpdate, userRole, o
         pdfUrl={previewDoc?.fileUrl || ''}
         filename={previewDoc?.file || previewDoc?.name || 'Certificacion'}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="bg-card border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar certificación?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente la certificación
+              <span className="font-semibold text-foreground"> "{deleteTarget?.name}"</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCertification} className="bg-red-600 hover:bg-red-700 text-white">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

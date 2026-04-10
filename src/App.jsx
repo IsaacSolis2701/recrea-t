@@ -182,8 +182,8 @@ function App() {
         body: projectToUpdate,
       });
 
-      await fetchAppData();
       setSelectedProject(response.project);
+      setProjects((prev) => prev.map((p) => p.id === response.project.id ? response.project : p));
     } catch (error) {
       toast({ title: "Error al actualizar", description: error.message, variant: "destructive" });
     }

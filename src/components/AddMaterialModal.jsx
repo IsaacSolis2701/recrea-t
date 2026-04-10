@@ -24,8 +24,6 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
 
   const [formData, setFormData] = useState(getInitialFormData(null, category || availableCategories?.[0], subcategory));
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
-  const [showNewSubcategoryInput, setShowNewSubcategoryInput] = useState(false);
-  const [newSubcategory, setNewSubcategory] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [productImageFile, setProductImageFile] = useState(null);
   const [ambianceImageFile, setAmbianceImageFile] = useState(null);
@@ -41,8 +39,6 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
       }
       setShowNewCategoryInput(false);
       setNewCategory('');
-      setShowNewSubcategoryInput(false);
-      setNewSubcategory('');
       setProductImageFile(null);
       setAmbianceImageFile(null);
     }
@@ -194,47 +190,24 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
             <Label htmlFor="subcategory-field">Subcategoría</Label>
             {context !== 'catalog' && subcategory ? (
               <Input id="subcategory-field" value={formData.subcategory} readOnly className="bg-muted" />
-            ) : !showNewSubcategoryInput ? (
-              <Select
-                value={formData.subcategory || '__new__'}
-                onValueChange={(v) => {
-                  if (v === '__new__') { setShowNewSubcategoryInput(true); }
-                  else { handleInputChange('subcategory', v); }
-                }}
-              >
-                <SelectTrigger id="subcategory-field">
-                  <SelectValue placeholder="Selecciona o crea subcategoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSubcategories.map((sub) => (
-                    <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                  ))}
-                  <SelectItem value="__new__" className="text-primary font-semibold">
-                    <div className="flex items-center gap-2">
-                      <Plus className="w-4 h-4" /> Nueva subcategoría
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
             ) : (
-              <div className="flex gap-2">
+              <>
                 <Input
-                  value={newSubcategory}
-                  onChange={(e) => setNewSubcategory(e.target.value)}
-                  placeholder="Nombre de la subcategoría"
+                  id="subcategory-field"
+                  value={formData.subcategory}
+                  onChange={(e) => handleInputChange('subcategory', e.target.value)}
+                  placeholder="Ej: Encimera, Suelo, Grifos..."
+                  list="subcategory-suggestions"
+                  autoComplete="off"
                 />
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (newSubcategory.trim()) {
-                      handleInputChange('subcategory', newSubcategory.trim());
-                      setShowNewSubcategoryInput(false);
-                      setNewSubcategory('');
-                    }
-                  }}
-                >Añadir</Button>
-                <Button type="button" variant="ghost" onClick={() => setShowNewSubcategoryInput(false)}>Cancelar</Button>
-              </div>
+                {availableSubcategories.length > 0 && (
+                  <datalist id="subcategory-suggestions">
+                    {availableSubcategories.map((sub) => (
+                      <option key={sub} value={sub} />
+                    ))}
+                  </datalist>
+                )}
+              </>
             )}
           </div>
 

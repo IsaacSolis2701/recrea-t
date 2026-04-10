@@ -184,6 +184,7 @@ const MaterialsCatalog = ({ onBack }) => {
         context="catalog"
         availableCategories={categoriesForGrouping.map((category) => category.name)}
         onNewCategory={handleNewCategory}
+        availableSubcategories={[...new Set(materials.map((m) => m.subcategory).filter(Boolean))]}
       />
 
       <AlertDialog open={deleteDialog.isOpen} onOpenChange={(isOpen) => !isOpen && setDeleteDialog({ isOpen: false, materialId: null })}>
