@@ -243,7 +243,7 @@ const ProfileModal = ({ isOpen, onClose, user, onUpdate }) => {
                     onChange={(e) => setChangeForm({ ...changeForm, password: e.target.value })}
                     show={showReqPw.pw}
                     onToggle={() => setShowReqPw((p) => ({ ...p, pw: !p.pw }))}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Minimo 6 caracteres"
                   />
                   {changeForm.password.length > 0 && (
                     <PasswordInput
