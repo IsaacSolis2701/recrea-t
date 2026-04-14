@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Plus, Eye, Edit, FileUp, Download, Trash2 } from 'lucide-react';
+import { FileText, Plus, Eye, Edit, FileUp, Download, Trash2, FileCheck2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -16,16 +16,38 @@ import {
 import AddInvoiceModal from '@/components/AddInvoiceModal';
 import AddBudgetModal from '@/components/AddBudgetModal';
 import AddCertificationModal from '@/components/AddCertificationModal';
+import AddProjectDocModal from '@/components/AddProjectDocModal';
 import BudgetManager from '@/components/BudgetManager';
 import CertificationManager from '@/components/CertificationManager';
 import CertificationExpirationWidget from '@/components/CertificationExpirationWidget';
 import PaymentHistory from '@/components/PaymentHistory';
 import PDFViewerModal from '@/components/PDFViewerModal';
 
-const ProjectDocuments = ({ projectId, invoices, certifications, budgets, onUpdate, userRole, onNavigateToPayment }) => {
+const DOC_TYPE_LABELS = {
+  contrato: 'Contrato firmado',
+  licencia: 'Licencia de urbanismo',
+  permiso: 'Permiso de obras',
+  otro: 'Documento',
+};
+
+const ProjectDocuments = ({ projectId, invoices, certifications, budgets, projectDocs = [], onUpdate, userRole, onNavigateToPayment }) => {
   const [modal, setModal] = useState({ type: null, isOpen: false, data: null });
   const [previewDoc, setPreviewDoc] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isAddDocOpen, setIsAddDocOpen] = useState(false);
+  const [deleteDocTarget, setDeleteDocTarget] = useState(null);
+
+  const handleAddProjectDoc = (docData) => {
+    const newDoc = { id: Date.now().toString(), ...docData, createdAt: new Date().toISOString() };
+    onUpdate('project_docs', [...projectDocs, newDoc]);
+    toast({ title: 'Documento añadido', description: 'El documento ha sido guardado correctamente.' });
+  };
+
+  const handleDeleteProjectDoc = () => {
+    onUpdate('project_docs', projectDocs.filter((d) => d.id !== deleteDocTarget.id));
+    setDeleteDocTarget(null);
+    toast({ title: 'Documento eliminado' });
+  };
 
   const handleDeleteItem = () => {
     const { type, item } = deleteTarget;
@@ -261,6 +283,66 @@ const ProjectDocuments = ({ projectId, invoices, certifications, budgets, onUpda
         {renderDocList(invoices, 'Facturas', 'invoices')}
       </div>
 
+      {/* Sección: Documentos oficiales (contrato, licencias) */}
+      <div className="pt-6 border-t">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <FileCheck2 className="w-5 h-5 text-primary" />
+            <h3 className="text-xl font-bold text-foreground">Documentos</h3>
+          </div>
+          {userRole === 'admin' && (
+            <Button size="sm" variant="outline" onClick={() => setIsAddDocOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" /> Añadir
+            </Button>
+          )}
+        </div>
+
+        {projectDocs.length === 0 ? (
+          <p className="text-sm text-muted-foreground p-3 bg-card rounded-lg border text-center">
+            {userRole === 'admin'
+              ? 'Añade contratos firmados, licencias de urbanismo u otros documentos.'
+              : 'Los documentos del proyecto aparecerán aquí.'}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {projectDocs.map((doc) => (
+              <div key={doc.id} className="bg-white/75 p-4 rounded-2xl border border-white/80 shadow-sm flex justify-between items-center flex-wrap gap-3">
+                <div>
+                  <p className="font-semibold">{doc.name || DOC_TYPE_LABELS[doc.type] || 'Documento'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {DOC_TYPE_LABELS[doc.type] || doc.type}
+                    {doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString('es-ES')}` : ''}
+                  </p>
+                  {doc.file && (
+                    <span className="text-xs text-blue-500 flex items-center gap-1 mt-0.5">
+                      <FileUp className="w-3 h-3" />{doc.file}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setPreviewDoc(doc)} disabled={!doc.fileUrl}>
+                    <Eye className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Ver</span>
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleDownload(doc)} disabled={!doc.fileUrl}>
+                    <Download className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Descargar</span>
+                  </Button>
+                  {userRole === 'admin' && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeleteDocTarget(doc)}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Eliminar</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {userRole === 'client' && (
         <div className="pt-10 border-t">
           <PaymentHistory />
@@ -276,6 +358,23 @@ const ProjectDocuments = ({ projectId, invoices, certifications, budgets, onUpda
         pdfUrl={previewDoc?.fileUrl || ''}
         filename={previewDoc?.file || previewDoc?.title || previewDoc?.number || previewDoc?.name || 'Documento'}
       />
+
+      <AddProjectDocModal isOpen={isAddDocOpen} onClose={() => setIsAddDocOpen(false)} onSubmit={handleAddProjectDoc} />
+
+      <AlertDialog open={!!deleteDocTarget} onOpenChange={(open) => !open && setDeleteDocTarget(null)}>
+        <AlertDialogContent className="bg-card border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará permanentemente <span className="font-semibold text-foreground">"{deleteDocTarget?.name}"</span>. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteProjectDoc} className="bg-red-600 hover:bg-red-700 text-white">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent className="bg-card border">
