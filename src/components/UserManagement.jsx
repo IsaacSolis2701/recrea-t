@@ -173,6 +173,7 @@ const UserManagement = ({ users, onUsersUpdate, projects }) => {
       await apiRequest(`/profile-change-requests/${requestId}/reject`, { method: 'PATCH' });
       toast({ title: 'Solicitud rechazada' });
       setChangeRequests((prev) => prev.filter((r) => r.id !== requestId));
+      onUsersUpdate();
     } catch (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {

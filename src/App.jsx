@@ -32,6 +32,7 @@ function App() {
   const [view, setView] = useState('dashboard'); // dashboard, projectDetail, users, catalog, payment, adminPayments, adminReminders
   const [paymentData, setPaymentData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   const defaultPhases = [
     { id: 'phase1', name: 'PreReforma', status: 'pending', date: null },
@@ -63,6 +64,13 @@ function App() {
       if (currentUserData.role === 'admin') {
         const usersResponse = await apiRequest('/users');
         setUsers(usersResponse.users || []);
+        try {
+          const reqResponse = await apiRequest('/profile-change-requests');
+          const pending = (reqResponse.requests || []).filter((r) => r.status === 'pending');
+          setPendingRequestsCount(pending.length);
+        } catch {
+          setPendingRequestsCount(0);
+        }
       } else {
         setUsers([currentUserData]);
       }
@@ -412,8 +420,11 @@ function App() {
                     <Button variant="ghost" size="icon" onClick={() => navigateTo('adminReminders')} title="Recordatorios" className="hidden sm:inline-flex">
                       <Bell className="w-5 h-5" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => navigateTo('users')} title="Gestión de Usuarios" className="hidden sm:inline-flex">
+                    <Button variant="ghost" size="icon" onClick={() => navigateTo('users')} title="Gestión de Usuarios" className="hidden sm:inline-flex relative">
                       <UserCog className="w-5 h-5" />
+                      {pendingRequestsCount > 0 && (
+                        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
+                      )}
                     </Button>
 
                     {/* Mobile: collapsed dropdown */}
@@ -435,6 +446,9 @@ function App() {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigateTo('users')}>
                           <UserCog className="w-4 h-4 mr-2" /> Usuarios
+                          {pendingRequestsCount > 0 && (
+                            <span className="ml-auto w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                          )}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
