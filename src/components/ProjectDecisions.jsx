@@ -129,6 +129,11 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
     setSelectedDecision(updatedDecision);
   };
 
+  const handleDeleteDecision = (decision) => {
+    onUpdate((materials || []).filter((m) => m.id !== decision.id));
+    toast({ title: 'Material eliminado', description: `${decision.name} ha sido eliminado.` });
+  };
+
   const handleSaveDecision = (decisionData) => {
     if (modalState.isEditing) {
       const updatedMaterials = (materials || []).map((m) =>
@@ -453,6 +458,7 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
                 decisions={materialsInSubcategory}
                 onSelectDecision={setSelectedDecision}
                 onEditDecision={handleEditDecision}
+                onDeleteDecision={handleDeleteDecision}
                 userRole={userRole}
               />
             )}
@@ -536,9 +542,14 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
       <CatalogPickerModal
         isOpen={isCatalogPickerOpen}
         onClose={() => setIsCatalogPickerOpen(false)}
-        materials={catalogMaterials}
+        materials={selectedSpaceId
+          ? catalogMaterials.filter((m) =>
+              m.category &&
+              m.category.toLowerCase() === getSpaceName(selectedSpaceId).toLowerCase()
+            )
+          : catalogMaterials}
         onSelect={handlePickFromCatalog}
-        existingMaterials={materialsInSubcategory}
+        existingMaterials={selectedSpaceId ? getMaterialsForSpace(selectedSpaceId) : []}
       />
 
       <ImageViewModal

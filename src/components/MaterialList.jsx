@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Package, CheckCircle2, AlertTriangle, Edit, Ban } from 'lucide-react';
+import { ChevronRight, Package, CheckCircle2, AlertTriangle, Edit, Ban, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const MaterialList = ({ decisions, onSelectDecision, onEditDecision, userRole, gridLayout = false }) => {
+const MaterialList = ({ decisions, onSelectDecision, onEditDecision, onDeleteDecision, userRole, gridLayout = false }) => {
   if (!decisions || decisions.length === 0) {
     return (
       <div className="bg-card border rounded-xl p-12 text-center shadow-sm">
@@ -98,9 +98,21 @@ const MaterialList = ({ decisions, onSelectDecision, onEditDecision, userRole, g
           <div className="flex items-center gap-3">
             {getStatus(decision)}
             {userRole === 'admin' && (
-              <Button variant="ghost" size="icon" onClick={() => onEditDecision(decision)}>
-                <Edit className="w-4 h-4 text-muted-foreground" />
-              </Button>
+              <>
+                <Button variant="ghost" size="icon" onClick={() => onEditDecision(decision)}>
+                  <Edit className="w-4 h-4 text-muted-foreground" />
+                </Button>
+                {decision.status === 'pending' && onDeleteDecision && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => { e.stopPropagation(); onDeleteDecision(decision); }}
+                    className="hover:bg-destructive/10"
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                )}
+              </>
             )}
             <ChevronRight onClick={() => onSelectDecision(decision)} className="w-5 h-5 text-muted-foreground cursor-pointer" />
           </div>
