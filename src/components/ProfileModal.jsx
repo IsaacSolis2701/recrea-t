@@ -7,7 +7,7 @@ import { apiRequest } from '@/lib/apiClient';
 import { toast } from '@/components/ui/use-toast';
 import { User, Lock, Eye, EyeOff, Send, CheckCircle, KeyRound } from 'lucide-react';
 
-const PasswordInput = ({ id, value, onChange, show, onToggle, placeholder }) => (
+const PasswordInput = ({ id, value, onChange, show, onToggle, placeholder, required = false }) => (
   <div className="relative">
     <Input
       id={id}
@@ -15,8 +15,8 @@ const PasswordInput = ({ id, value, onChange, show, onToggle, placeholder }) => 
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      required
-      minLength={6}
+      required={required}
+      minLength={required ? 6 : undefined}
       className="pr-10"
     />
     <button
@@ -279,6 +279,7 @@ const ProfileModal = ({ isOpen, onClose, user, onUpdate }) => {
                 onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                 show={showPw.current}
                 onToggle={() => setShowPw((p) => ({ ...p, current: !p.current }))}
+                required
               />
             </div>
             <div className="space-y-1.5">
@@ -290,6 +291,7 @@ const ProfileModal = ({ isOpen, onClose, user, onUpdate }) => {
                 show={showPw.new}
                 onToggle={() => setShowPw((p) => ({ ...p, new: !p.new }))}
                 placeholder="Mínimo 6 caracteres"
+                required
               />
             </div>
             <div className="space-y-1.5">
@@ -300,6 +302,7 @@ const ProfileModal = ({ isOpen, onClose, user, onUpdate }) => {
                 onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                 show={showPw.confirm}
                 onToggle={() => setShowPw((p) => ({ ...p, confirm: !p.confirm }))}
+                required
               />
             </div>
             <Button type="submit" disabled={savingPassword} variant="outline" className="w-full">

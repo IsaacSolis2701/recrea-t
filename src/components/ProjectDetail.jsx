@@ -13,7 +13,7 @@ import {
   CalendarDays,
   MapPin,
   FolderOpen,
-  Sparkles,
+  StickyNote,
   User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import ProjectHome from '@/components/ProjectHome';
 import ProjectWorkProgress from '@/components/ProjectWorkProgress';
 import ProjectDocuments from '@/components/ProjectDocuments';
 import ProjectDecisions from '@/components/ProjectDecisions';
+import ProjectNotes from '@/components/ProjectNotes';
 import GalleryManager from '@/components/GalleryManager';
 
 const ProjectDetail = ({ project, onBack, onUpdate, onDelete, onEdit, userRole, onNavigateToPayment }) => {
@@ -101,6 +102,7 @@ const ProjectDetail = ({ project, onBack, onUpdate, onDelete, onEdit, userRole, 
           invoices={project.invoices}
           certifications={project.certifications}
           budgets={project.budgets}
+          projectDocs={project.project_docs || []}
           onUpdate={handleUpdate}
           userRole={userRole}
           onNavigateToPayment={(certification) => onNavigateToPayment && onNavigateToPayment(certification, project.id)}
@@ -113,10 +115,10 @@ const ProjectDetail = ({ project, onBack, onUpdate, onDelete, onEdit, userRole, 
       component: (
         <ProjectDecisions
           materials={project.materials}
+          spaces={project.spaces || []}
           onUpdate={(newMaterials) => handleUpdate('materials', newMaterials)}
+          onSpacesUpdate={(newSpaces) => handleUpdate('spaces', newSpaces)}
           userRole={userRole}
-          selectedCategories={project.selected_categories || []}
-          onCategoriesUpdate={(newCategories) => handleUpdate('selected_categories', newCategories)}
         />
       ),
     },
@@ -132,6 +134,18 @@ const ProjectDetail = ({ project, onBack, onUpdate, onDelete, onEdit, userRole, 
         />
       ),
     },
+    ...(userRole === 'admin' ? {
+      notes: {
+        label: 'Notas',
+        icon: StickyNote,
+        component: (
+          <ProjectNotes
+            notes={project.notes || []}
+            onUpdate={(newNotes) => handleUpdate('notes', newNotes)}
+          />
+        ),
+      },
+    } : {}),
   };
 
   const quickStats = [

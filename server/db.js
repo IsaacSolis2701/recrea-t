@@ -212,6 +212,9 @@ export const initDatabase = async () => {
 	await ensureColumnExists(db, 'pdfs', 'client_id', 'CHAR(36) NULL');
 	await ensureColumnExists(db, 'materials_catalog', 'subcategory', 'VARCHAR(255) NULL');
 	await ensureColumnExists(db, 'projects', 'selected_categories', 'JSON NULL');
+	await ensureColumnExists(db, 'projects', 'project_docs', 'JSON NULL');
+	await ensureColumnExists(db, 'projects', 'notes', 'JSON NULL');
+	await ensureColumnExists(db, 'projects', 'spaces', 'JSON NULL');
 
 	// Migration: set category_id for existing materials that only have a category name string
 	const [matsToFix] = await db.query(

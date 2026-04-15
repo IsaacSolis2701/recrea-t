@@ -70,6 +70,9 @@ const normalizeProjectRow = (project) => ({
 	gallery: safeJsonParse(project.gallery, []),
 	materials: safeJsonParse(project.materials, []),
 	selected_categories: safeJsonParse(project.selected_categories, []),
+	project_docs: safeJsonParse(project.project_docs, []),
+	notes: safeJsonParse(project.notes, []),
+	spaces: safeJsonParse(project.spaces, []),
 });
 
 const buildDefaultMaterialOptions = (material) => [
@@ -159,6 +162,9 @@ const toProjectPayload = (payload) => {
 	const gallery = Array.isArray(payload.gallery) ? payload.gallery : [];
 	const materials = Array.isArray(payload.materials) ? payload.materials : [];
 	const selectedCategories = Array.isArray(payload.selected_categories) ? payload.selected_categories : [];
+	const projectDocs = Array.isArray(payload.project_docs) ? payload.project_docs : [];
+	const notes = Array.isArray(payload.notes) ? payload.notes : [];
+	const spaces = Array.isArray(payload.spaces) ? payload.spaces : [];
 	const completedPhases = phases.filter((phase) => phase.status === 'completed').length;
 	const progress = phases.length > 0 ? Math.round((completedPhases / phases.length) * 100) : Number(payload.progress || 0);
 
@@ -180,6 +186,9 @@ const toProjectPayload = (payload) => {
 		gallery: JSON.stringify(gallery),
 		materials: JSON.stringify(materials),
 		selected_categories: JSON.stringify(selectedCategories),
+		project_docs: JSON.stringify(projectDocs),
+		notes: JSON.stringify(notes),
+		spaces: JSON.stringify(spaces),
 	};
 };
 
@@ -794,8 +803,9 @@ app.post('/api/projects', authMiddleware, requireRole('admin'), async (req, res)
 	await pool.execute(
 		`INSERT INTO projects (
 			id, name, description, location, start_date, estimated_delivery, status, progress,
-			client_id, client_name, phases, invoices, budgets, certifications, gallery, materials, selected_categories
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			client_id, client_name, phases, invoices, budgets, certifications, gallery, materials, selected_categories,
+			project_docs, notes, spaces
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			payload.id,
 			payload.name,
@@ -814,6 +824,9 @@ app.post('/api/projects', authMiddleware, requireRole('admin'), async (req, res)
 			payload.gallery,
 			payload.materials,
 			payload.selected_categories,
+			payload.project_docs,
+			payload.notes,
+			payload.spaces,
 		],
 	);
 
@@ -863,7 +876,8 @@ app.put('/api/projects/:id', authMiddleware, async (req, res) => {
 		`UPDATE projects SET
 			name = ?, description = ?, location = ?, start_date = ?, estimated_delivery = ?, status = ?,
 			progress = ?, client_id = ?, client_name = ?, phases = ?, invoices = ?, budgets = ?,
-			certifications = ?, gallery = ?, materials = ?, selected_categories = ?
+			certifications = ?, gallery = ?, materials = ?, selected_categories = ?,
+			project_docs = ?, notes = ?, spaces = ?
 		WHERE id = ?`,
 		[
 			payload.name,
@@ -882,6 +896,9 @@ app.put('/api/projects/:id', authMiddleware, async (req, res) => {
 			payload.gallery,
 			payload.materials,
 			payload.selected_categories,
+			payload.project_docs,
+			payload.notes,
+			payload.spaces,
 			payload.id,
 		],
 	);
