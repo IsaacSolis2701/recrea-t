@@ -140,6 +140,7 @@ const buildClientSafeMaterialsUpdate = (existingMaterials, incomingMaterials) =>
 			...existingMaterial,
 			status: nextStatus,
 			options: sanitizeClientMaterialOptions(existingMaterial, incomingMaterial),
+			changeNote: nextStatus === 'rejected' ? (incomingMaterial.changeNote ?? existingMaterial.changeNote ?? null) : null,
 		};
 	});
 };
@@ -644,13 +645,74 @@ app.patch('/api/profile-change-requests/:id/approve', authMiddleware, requireRol
 app.patch('/api/profile-change-requests/:id/reject', authMiddleware, requireRole('admin'), async (req, res) => {
 	const requestId = String(req.params.id || '').trim();
 
-	const [result] = await pool.execute(
-		"UPDATE profile_change_requests SET status = 'rejected', reviewed_at = NOW() WHERE id = ? AND status = 'pending'",
+	const [rows] = await pool.execute(
+		"SELECT * FROM profile_change_requests WHERE id = ? AND status = 'pending'",
 		[requestId],
 	);
 
-	if (result.affectedRows === 0) {
+	if (rows.length === 0) {
 		return res.status(404).json({ message: 'Solicitud no encontrada o ya procesada.' });
+	}
+
+	const request = rows[0];
+
+	await pool.execute(
+		"UPDATE profile_change_requests SET status = 'rejected', reviewed_at = NOW() WHERE id = ?",
+		[requestId],
+	);
+
+	const [userRows] = await pool.execute(
+		'SELECT id, name, username, email, role FROM app_users WHERE id = ?',
+		[request.user_id],
+	);
+
+	const user = sanitizeUser(userRows[0]);
+
+	// Send rejection email to the client
+	try {
+		const requestedChangesHtml = [
+			request.requested_name ? `<p style="margin:0 0 6px"><strong>Nombre:</strong> ${request.requested_name}</p>` : '',
+			request.requested_username ? `<p style="margin:0 0 6px"><strong>Usuario de acceso:</strong> ${request.requested_username}</p>` : '',
+			request.requested_email ? `<p style="margin:0 0 6px"><strong>Email:</strong> ${request.requested_email}</p>` : '',
+			request.requested_password ? `<p style="margin:0 0 6px"><strong>Contraseña:</strong> (nueva contraseña solicitada)</p>` : '',
+		].filter(Boolean).join('');
+
+		await emailTransporter.sendMail({
+			from: `"ReCrea-T" <${config.email.from}>`,
+			to: user.email,
+			subject: 'Tu solicitud de cambio de datos no ha sido aprobada — ReCrea-T',
+			html: `
+				<div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; color: #111;">
+					<div style="background: #b3c1b3; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+						<h1 style="margin: 0; color: white; font-size: 22px;">ReCrea-T</h1>
+						<p style="margin: 4px 0 0; color: rgba(255,255,255,0.85); font-size: 13px;">Reforme Disfrutando</p>
+					</div>
+					<div style="background: white; padding: 32px; border: 1px solid #eee; border-radius: 0 0 12px 12px;">
+						<p style="margin: 0 0 16px; font-size: 16px;">Hola <strong>${user.name}</strong>,</p>
+						<p style="margin: 0 0 24px; color: #555; line-height: 1.6;">
+							Tu solicitud de cambio de datos ha sido <strong>rechazada</strong>. Tus datos de acceso actuales permanecen sin cambios:
+						</p>
+						<div style="background: #f5f5f3; border-radius: 10px; padding: 20px 24px; margin-bottom: 24px;">
+							<p style="margin:0 0 6px"><strong>Usuario:</strong> ${user.username}</p>
+							<p style="margin:0 0 6px"><strong>Email:</strong> ${user.email}</p>
+						</div>
+						${requestedChangesHtml ? `
+						<p style="margin: 0 0 12px; color: #555; line-height: 1.6;">Los cambios solicitados que no fueron aprobados:</p>
+						<div style="background: #fff3f3; border-left: 4px solid #e57373; border-radius: 6px; padding: 16px 20px; margin-bottom: 24px;">
+							${requestedChangesHtml}
+						</div>` : ''}
+						<p style="margin: 0 0 24px; color: #555; line-height: 1.6;">
+							Si tienes alguna duda, por favor contacta con nosotros.
+						</p>
+						<p style="margin: 0; color: #999; font-size: 12px;">
+							Este mensaje ha sido enviado automáticamente por ReCrea-T. Por favor, no respondas a este correo.
+						</p>
+					</div>
+				</div>
+			`,
+		});
+	} catch (emailError) {
+		console.error('Error sending rejection email:', emailError.message);
 	}
 
 	res.json({ message: 'Solicitud rechazada.' });

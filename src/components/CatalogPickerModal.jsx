@@ -4,41 +4,49 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Package, Search, CheckCircle2, ChevronRight, ArrowLeft, Layers } from 'lucide-react';
 
-const CatalogPickerModal = ({ isOpen, onClose, materials, onSelect, existingMaterials = [] }) => {
+const CatalogPickerModal = ({ isOpen, onClose, categories = [], materials = [], onSelect, existingMaterials = [] }) => {
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
 
-  const isAlreadyAdded = (material) => {
-    return existingMaterials.some(
-      (m) => m.name?.toLowerCase() === material.name?.toLowerCase() ||
-             (m.catalog_id && m.catalog_id === material.id)
+  const getMaterialsForCategory = (catId) => {
+    const cat = categories.find((c) => c.id === catId);
+    if (!cat) return [];
+    return materials.filter(
+      (m) => m.category_id === catId || m.category === cat.name || m.category === catId,
     );
   };
 
-  const subcategories = [...new Set(materials.map((m) => m.subcategory || 'General'))];
+  const isAlreadyAdded = (material) =>
+    existingMaterials.some(
+      (m) =>
+        m.name?.toLowerCase() === material.name?.toLowerCase() ||
+        (m.catalog_id && m.catalog_id === material.id),
+    );
 
-  const materialsInSubcategory = materials.filter((m) => {
-    const matchesSub = (m.subcategory || 'General') === selectedSubcategory;
-    const matchesSearch =
-      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (m.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-    return matchesSub && matchesSearch;
-  });
+  const selectedCategoryObj = categories.find((c) => c.id === selectedCategoryId);
+
+  const filteredMaterials = selectedCategoryId
+    ? getMaterialsForCategory(selectedCategoryId).filter(
+        (m) =>
+          m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (m.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false),
+      )
+    : [];
 
   const handleClose = () => {
-    setSelectedSubcategory(null);
+    setSelectedCategoryId(null);
     setSearchTerm('');
     onClose();
   };
 
   const handleBack = () => {
-    setSelectedSubcategory(null);
+    setSelectedCategoryId(null);
     setSearchTerm('');
   };
 
   const handleSelect = (material) => {
-    onSelect({ ...material, subcategory: selectedSubcategory });
-    setSelectedSubcategory(null);
+    onSelect(material);
+    setSelectedCategoryId(null);
     setSearchTerm('');
   };
 
@@ -47,54 +55,64 @@ const CatalogPickerModal = ({ isOpen, onClose, materials, onSelect, existingMate
       <DialogContent className="bg-card border max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {selectedSubcategory && (
+            {selectedCategoryId && (
               <button onClick={handleBack} className="hover:text-primary transition-colors mr-1">
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
-            {selectedSubcategory ?? 'Elegir del Catálogo'}
+            {selectedCategoryObj?.name ?? 'Elegir del Catálogo'}
           </DialogTitle>
           <DialogDescription>
-            {selectedSubcategory
-              ? 'Selecciona un material para añadirlo al proyecto.'
-              : 'Selecciona una subcategoría para ver los materiales disponibles.'}
+            {selectedCategoryId
+              ? 'Selecciona un producto para añadirlo al espacio.'
+              : 'Selecciona una categoría de producto.'}
           </DialogDescription>
         </DialogHeader>
 
-        {!selectedSubcategory ? (
-          /* Paso 1 — subcategorías */
+        {/* Nivel 0: Categorías */}
+        {!selectedCategoryId && (
           <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-2 mt-4">
-            {subcategories.length > 0 ? (
-              subcategories.map((sub) => (
-                <div
-                  key={sub}
-                  onClick={() => setSelectedSubcategory(sub)}
-                  className="p-3 rounded-lg border flex justify-between items-center bg-background/50 cursor-pointer hover:bg-secondary/50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-primary" />
-                    <span className="font-semibold">{sub}</span>
+            {categories.length > 0 ? (
+              categories.map((cat) => {
+                const count = getMaterialsForCategory(cat.id).length;
+                return (
+                  <div
+                    key={cat.id}
+                    onClick={() => setSelectedCategoryId(cat.id)}
+                    className="p-3 rounded-lg border flex justify-between items-center bg-background/50 cursor-pointer hover:bg-secondary/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-primary" />
+                      <div>
+                        <span className="font-semibold">{cat.name}</span>
+                        <p className="text-xs text-muted-foreground">
+                          {count} producto{count !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-center py-8">
                 <Package className="w-12 h-12 mx-auto text-muted-foreground" />
-                <p className="mt-2 font-semibold">Sin materiales en esta zona</p>
+                <p className="mt-2 font-semibold">Sin categorías en el catálogo</p>
                 <p className="text-sm text-muted-foreground">
-                  Añade materiales al catálogo con la categoría correcta.
+                  Añade categorías y productos al catálogo primero.
                 </p>
               </div>
             )}
           </div>
-        ) : (
-          /* Paso 2 — materiales dentro de la subcategoría */
+        )}
+
+        {/* Nivel 1: Productos de la categoría */}
+        {selectedCategoryId && (
           <>
             <div className="relative my-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar material..."
+                placeholder="Buscar producto..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -102,8 +120,8 @@ const CatalogPickerModal = ({ isOpen, onClose, materials, onSelect, existingMate
             </div>
 
             <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-2">
-              {materialsInSubcategory.length > 0 ? (
-                materialsInSubcategory.map((material) => {
+              {filteredMaterials.length > 0 ? (
+                filteredMaterials.map((material) => {
                   const alreadyAdded = isAlreadyAdded(material);
                   return (
                     <div
@@ -112,11 +130,20 @@ const CatalogPickerModal = ({ isOpen, onClose, materials, onSelect, existingMate
                         alreadyAdded ? 'bg-muted/50 opacity-60' : 'bg-background/50'
                       }`}
                     >
-                      <div className="flex-1 min-w-0 mr-3">
-                        <p className="font-semibold truncate">{material.name}</p>
-                        <p className="text-sm text-muted-foreground line-clamp-1">
-                          {material.description}
-                        </p>
+                      <div className="flex items-center gap-3 flex-1 min-w-0 mr-3">
+                        {material.image_url && (
+                          <img
+                            src={material.image_url}
+                            alt={material.name}
+                            className="w-10 h-10 rounded object-cover flex-shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate">{material.name}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-1">
+                            {material.brand || material.description}
+                          </p>
+                        </div>
                       </div>
                       {alreadyAdded ? (
                         <div className="flex items-center gap-1.5 text-primary text-xs font-medium flex-shrink-0">
@@ -138,8 +165,16 @@ const CatalogPickerModal = ({ isOpen, onClose, materials, onSelect, existingMate
               ) : (
                 <div className="text-center py-8">
                   <Package className="w-12 h-12 mx-auto text-muted-foreground" />
-                  <p className="mt-2 font-semibold">No se encontraron materiales</p>
-                  <p className="text-sm text-muted-foreground">Prueba con otra búsqueda.</p>
+                  <p className="mt-2 font-semibold">
+                    {getMaterialsForCategory(selectedCategoryId).length === 0
+                      ? 'Sin productos en esta categoría'
+                      : 'No se encontraron productos'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {getMaterialsForCategory(selectedCategoryId).length === 0
+                      ? 'Añade productos a esta categoría en el catálogo.'
+                      : 'Prueba con otra búsqueda.'}
+                  </p>
                 </div>
               )}
             </div>

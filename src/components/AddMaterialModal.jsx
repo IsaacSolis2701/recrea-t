@@ -9,12 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 import { uploadFile } from '@/lib/apiClient';
 
-const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initialData = null, context = 'project', availableCategories = [], onNewCategory, category, subcategory, availableSubcategories = [] }) => {
-  const getInitialFormData = (data, defaultCategory, defaultSubcategory) => ({
+const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initialData = null, context = 'project', availableCategories = [], onNewCategory, category }) => {
+  const getInitialFormData = (data, defaultCategory) => ({
     name: data?.name || '',
     description: data?.description || '',
     category: data?.category || defaultCategory || '',
-    subcategory: data?.subcategory || defaultSubcategory || '',
     price: data?.price || '',
     brand: data?.brand || '',
     format: data?.format || '',
@@ -22,7 +21,7 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
     ambianceImageUrl: data?.ambiance_image_url || '',
   });
 
-  const [formData, setFormData] = useState(getInitialFormData(null, category || availableCategories?.[0], subcategory));
+  const [formData, setFormData] = useState(getInitialFormData(null, category || availableCategories?.[0]));
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [productImageFile, setProductImageFile] = useState(null);
@@ -33,9 +32,9 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
     if (isOpen) {
       const defaultCategory = category || (availableCategories.length > 0 ? availableCategories[0] : '');
       if (isEditing && initialData) {
-        setFormData(getInitialFormData(initialData, defaultCategory, subcategory));
+        setFormData(getInitialFormData(initialData, defaultCategory));
       } else {
-        setFormData(getInitialFormData(null, defaultCategory, subcategory));
+        setFormData(getInitialFormData(null, defaultCategory));
       }
       setShowNewCategoryInput(false);
       setNewCategory('');
@@ -112,7 +111,6 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
         name: formData.name,
         description: formData.description,
         category: formData.category,
-        subcategory: formData.subcategory || '',
         price: parseFloat(formData.price) || 0,
         brand: formData.brand,
         format: formData.format,
@@ -183,31 +181,6 @@ const AddMaterialModal = ({ isOpen, onClose, onSubmit, isEditing = false, initia
                 <Button type="button" onClick={handleAddNewCategory}>Añadir</Button>
                 <Button type="button" variant="ghost" onClick={() => setShowNewCategoryInput(false)}>Cancelar</Button>
               </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="subcategory-field">Subcategoría</Label>
-            {context !== 'catalog' && subcategory ? (
-              <Input id="subcategory-field" value={formData.subcategory} readOnly className="bg-muted" />
-            ) : (
-              <>
-                <Input
-                  id="subcategory-field"
-                  value={formData.subcategory}
-                  onChange={(e) => handleInputChange('subcategory', e.target.value)}
-                  placeholder="Ej: Encimera, Suelo, Grifos..."
-                  list="subcategory-suggestions"
-                  autoComplete="off"
-                />
-                {availableSubcategories.length > 0 && (
-                  <datalist id="subcategory-suggestions">
-                    {availableSubcategories.map((sub) => (
-                      <option key={sub} value={sub} />
-                    ))}
-                  </datalist>
-                )}
-              </>
             )}
           </div>
 

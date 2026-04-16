@@ -110,7 +110,7 @@ const ProjectDetail = ({ project, onBack, onUpdate, onDelete, onEdit, userRole, 
       ),
     },
     materials: {
-      label: 'Materiales',
+      label: 'Espacios',
       icon: CheckSquare,
       component: (
         <ProjectDecisions
@@ -250,7 +250,7 @@ const ProjectDetail = ({ project, onBack, onUpdate, onDelete, onEdit, userRole, 
                   className="flex items-center justify-center"
                 >
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </motion.span>
               </button>
@@ -376,9 +376,8 @@ const ProjectDetail = ({ project, onBack, onUpdate, onDelete, onEdit, userRole, 
               key={key}
               type="button"
               onClick={() => setActiveTab(key)}
-              className={`rounded-[22px] flex-1 px-2 py-2.5 flex flex-col items-center gap-1 transition-all duration-300 active:scale-95 ${
-                activeTab === key ? 'bg-white shadow-sm' : 'hover:bg-white/50'
-              }`}
+              className={`rounded-[22px] flex-1 px-2 py-2.5 flex flex-col items-center gap-1 transition-all duration-300 active:scale-95 ${activeTab === key ? 'bg-white shadow-sm' : 'hover:bg-white/50'
+                }`}
             >
               <tab.icon className={`w-5 h-5 ${activeTab === key ? 'text-primary' : 'text-muted-foreground'}`} />
               <span className={`font-semibold text-[11px] leading-none ${activeTab === key ? 'text-foreground' : 'text-muted-foreground'}`}>

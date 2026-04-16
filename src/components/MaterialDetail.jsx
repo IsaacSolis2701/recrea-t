@@ -130,10 +130,23 @@ const MaterialDetail = ({ decision, onUpdate, userRole, onViewImage }) => {
       )}
 
       {decision.status === 'rejected' && (
-        <div className="p-4 rounded-lg text-center bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
-          <p className="font-semibold">Has solicitado un cambio para este material.</p>
-          {decision.changeNote && (
-            <p className="text-sm mt-2 italic">"{decision.changeNote}"</p>
+        <div className="p-4 rounded-lg bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+          {userRole === 'admin' ? (
+            <>
+              <p className="font-semibold">El cliente ha solicitado un cambio:</p>
+              {decision.changeNote ? (
+                <p className="text-sm mt-2 italic">"{decision.changeNote}"</p>
+              ) : (
+                <p className="text-sm mt-2 opacity-70">Sin mensaje adicional.</p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-center">Has solicitado un cambio para este material.</p>
+              {decision.changeNote && (
+                <p className="text-sm mt-2 italic text-center">"{decision.changeNote}"</p>
+              )}
+            </>
           )}
         </div>
       )}

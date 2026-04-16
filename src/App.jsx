@@ -156,7 +156,12 @@ function App() {
         status: 'planning',
         progress: 0,
         phases: defaultPhases,
-        invoices: [], budgets: [], certifications: [], gallery: [], materials: []
+        invoices: [], budgets: [], certifications: [], gallery: [], materials: [],
+        spaces: [
+          'Generales', 'Aseo', 'Baño Principal', 'Baño Niños', 'Cocina',
+          'Salón', 'Comedor', 'Dormitorio Principal', 'Dormitorio 2',
+          'Dormitorio 3', 'Pasillo', 'Exterior',
+        ].map((name, i) => ({ id: `space-${Date.now()}-${i}`, name })),
       };
       try {
         const response = await apiRequest('/projects', {

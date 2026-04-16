@@ -39,21 +39,27 @@ const SUGGESTED_SPACES = [
 
 const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdate, userRole }) => {
   const [selectedSpaceId, setSelectedSpaceId] = useState(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [selectedDecision, setSelectedDecision] = useState(null);
   const [modalState, setModalState] = useState({ isOpen: false, isEditing: false, data: null });
   const [viewingImage, setViewingImage] = useState(null);
   const [isCatalogPickerOpen, setIsCatalogPickerOpen] = useState(false);
   const [catalogMaterials, setCatalogMaterials] = useState([]);
+  const [catalogCategories, setCatalogCategories] = useState([]);
+  const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
   const [isAddSpaceOpen, setIsAddSpaceOpen] = useState(false);
   const [customSpaceName, setCustomSpaceName] = useState('');
   const [removeSpaceDialog, setRemoveSpaceDialog] = useState({ isOpen: false, spaceId: null });
+  const [editSpaceDialog, setEditSpaceDialog] = useState({ isOpen: false, spaceId: null, name: '' });
 
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const matRes = await apiRequest('/materials-catalog');
+        const [matRes, catRes] = await Promise.all([
+          apiRequest('/materials-catalog'),
+          apiRequest('/categories'),
+        ]);
         setCatalogMaterials(matRes.materials || []);
+        setCatalogCategories(catRes.categories || []);
       } catch (error) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       }
@@ -68,30 +74,8 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
   const getMaterialsForSpace = (spaceId) =>
     (materials || []).filter((m) => (m.space_id || m.category) === spaceId);
 
-  const getSubcategoriesInSpace = (spaceId) => {
-    const subs = getMaterialsForSpace(spaceId).map((m) => m.subcategory || 'General');
-    return [...new Set(subs)];
-  };
-
-  const getMaterialsForSubcategory = (spaceId, subcategory) =>
-    getMaterialsForSpace(spaceId).filter((m) => (m.subcategory || 'General') === subcategory);
-
   const getSpaceStatus = (spaceId) => {
     const mats = getMaterialsForSpace(spaceId);
-    if (mats.length === 0) return null;
-    const pending = mats.filter((m) => m.status === 'pending').length;
-    if (pending > 0)
-      return <span className="text-sm text-primary font-semibold">{pending} pendiente{pending > 1 ? 's' : ''}</span>;
-    return (
-      <div className="flex items-center gap-2 text-green-600">
-        <CheckCircle2 className="w-4 h-4" />
-        <span className="text-sm font-medium">Todo decidido</span>
-      </div>
-    );
-  };
-
-  const getSubcategoryStatus = (spaceId, subcategory) => {
-    const mats = getMaterialsForSubcategory(spaceId, subcategory);
     if (mats.length === 0) return null;
     const pending = mats.filter((m) => m.status === 'pending').length;
     if (pending > 0)
@@ -137,7 +121,7 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
   const handleSaveDecision = (decisionData) => {
     if (modalState.isEditing) {
       const updatedMaterials = (materials || []).map((m) =>
-        m.id === modalState.data.id ? { ...m, ...decisionData, status: 'pending' } : m
+        m.id === modalState.data.id ? { ...m, ...decisionData, status: 'pending', changeNote: null } : m
       );
       onUpdate(updatedMaterials);
       toast({ title: 'Material actualizado', description: 'Los cambios han sido guardados.' });
@@ -165,18 +149,38 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
     setIsCatalogPickerOpen(false);
   };
 
-  const handleCreateCommonSpaces = () => {
-    const existingNames = new Set(spaces.map((s) => s.name.toLowerCase()));
-    const baseTs = Date.now();
-    const newSpaces = SUGGESTED_SPACES
-      .filter((name) => !existingNames.has(name.toLowerCase()))
-      .map((name, i) => ({ id: `space-${baseTs}-${i}`, name }));
-    if (newSpaces.length === 0) {
-      toast({ title: 'Ya están creadas', description: 'Las zonas comunes ya existen.' });
-      return;
+  const handleCreateNewProduct = async (materialData) => {
+    try {
+      const response = await apiRequest('/materials-catalog', { method: 'POST', body: materialData });
+      const newCatalogProduct = response.material;
+      setCatalogMaterials((prev) => [newCatalogProduct, ...prev]);
+      const newDecision = {
+        ...newCatalogProduct,
+        id: `proj-${Date.now()}`,
+        space_id: selectedSpaceId,
+        category: selectedSpaceId,
+        catalog_id: newCatalogProduct.id,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+      delete newDecision.created_at;
+      onUpdate([...(materials || []), newDecision]);
+      toast({ title: 'Producto creado', description: `"${newCatalogProduct.name}" añadido al catálogo y al espacio.` });
+      setIsNewProductModalOpen(false);
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
-    onSpacesUpdate([...spaces, ...newSpaces]);
-    toast({ title: 'Zonas comunes creadas', description: `${newSpaces.length} espacios añadidos.` });
+  };
+
+  const handleNewCategoryForProject = async (name) => {
+    if (!catalogCategories.find((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      try {
+        const res = await apiRequest('/categories', { method: 'POST', body: { name, description: '' } });
+        setCatalogCategories((prev) => [...prev, res.category]);
+      } catch {
+        // silent
+      }
+    }
   };
 
   const handleAddSpace = (name) => {
@@ -196,31 +200,43 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
   const handleConfirmRemoveSpace = () => {
     const { spaceId } = removeSpaceDialog;
     onSpacesUpdate(spaces.filter((s) => s.id !== spaceId));
-    onUpdate((materials || []).filter((m) => (m.space_id || m.category) !== spaceId));
+    // Desasociar materiales del espacio pero no eliminarlos
+    const updatedMaterials = (materials || []).map((m) =>
+      (m.space_id || m.category) === spaceId
+        ? { ...m, space_id: null, category: null }
+        : m,
+    );
+    onUpdate(updatedMaterials);
     setRemoveSpaceDialog({ isOpen: false, spaceId: null });
     if (selectedSpaceId === spaceId) {
       setSelectedSpaceId(null);
-      setSelectedSubcategory(null);
       setSelectedDecision(null);
     }
   };
 
+  const handleConfirmEditSpace = () => {
+    const { spaceId, name } = editSpaceDialog;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (spaces.some((s) => s.id !== spaceId && s.name.toLowerCase() === trimmed.toLowerCase())) {
+      toast({ title: 'Ya existe', description: 'Ya hay un espacio con ese nombre.', variant: 'destructive' });
+      return;
+    }
+    onSpacesUpdate(spaces.map((s) => (s.id === spaceId ? { ...s, name: trimmed } : s)));
+    setEditSpaceDialog({ isOpen: false, spaceId: null, name: '' });
+    toast({ title: 'Espacio renombrado' });
+  };
+
   const onBack = () => {
     if (selectedDecision) setSelectedDecision(null);
-    else if (selectedSubcategory) setSelectedSubcategory(null);
     else if (selectedSpaceId) setSelectedSpaceId(null);
   };
 
   const getTitle = () => {
     if (selectedDecision) return selectedDecision.name;
-    if (selectedSubcategory) return selectedSubcategory;
     if (selectedSpaceId) return getSpaceName(selectedSpaceId);
-    return 'Materiales';
+    return 'Espacios';
   };
-
-  const materialsInSubcategory = selectedSpaceId && selectedSubcategory
-    ? getMaterialsForSubcategory(selectedSpaceId, selectedSubcategory)
-    : [];
 
   return (
     <div className="space-y-6">
@@ -237,11 +253,17 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
           )}
         </h2>
 
-        {userRole === 'admin' && selectedSpaceId && selectedSubcategory && !selectedDecision && (
-          <Button size="sm" variant="outline" onClick={() => setIsCatalogPickerOpen(true)}>
-            <BookOpen className="w-4 h-4 mr-2" />
-            Añadir del catálogo
-          </Button>
+        {userRole === 'admin' && selectedSpaceId && !selectedDecision && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setIsCatalogPickerOpen(true)}>
+              <BookOpen className="w-4 h-4 mr-2" />
+              Del catálogo
+            </Button>
+            <Button size="sm" onClick={() => setIsNewProductModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nuevo producto
+            </Button>
+          </div>
         )}
 
         {userRole === 'admin' && !selectedSpaceId && (
@@ -253,30 +275,22 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
       </div>
 
       {/* Breadcrumb */}
-      {(selectedSpaceId || selectedSubcategory || selectedDecision) && (
+      {(selectedSpaceId || selectedDecision) && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
           <button
-            onClick={() => { setSelectedSpaceId(null); setSelectedSubcategory(null); setSelectedDecision(null); }}
+            onClick={() => { setSelectedSpaceId(null); setSelectedDecision(null); }}
             className="hover:text-foreground transition-colors"
           >
-            Materiales
+            Espacios
           </button>
           {selectedSpaceId && (
             <>
               <ChevronRight className="w-3 h-3" />
               <button
-                onClick={() => { setSelectedSubcategory(null); setSelectedDecision(null); }}
+                onClick={() => setSelectedDecision(null)}
                 className="hover:text-foreground transition-colors"
               >
                 {getSpaceName(selectedSpaceId)}
-              </button>
-            </>
-          )}
-          {selectedSubcategory && (
-            <>
-              <ChevronRight className="w-3 h-3" />
-              <button onClick={() => setSelectedDecision(null)} className="hover:text-foreground transition-colors">
-                {selectedSubcategory}
               </button>
             </>
           )}
@@ -303,14 +317,10 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
                     : 'El administrador configurará los espacios próximamente.'}
                 </p>
                 {userRole === 'admin' && (
-                  <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-center">
-                    <Button size="sm" onClick={handleCreateCommonSpaces}>
-                      <Home className="w-4 h-4 mr-2" />
-                      Crear zonas comunes
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setIsAddSpaceOpen(true)}>
+                  <div className="mt-4 flex justify-center">
+                    <Button size="sm" onClick={() => setIsAddSpaceOpen(true)}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Añadir personalizado
+                      Añadir espacio
                     </Button>
                   </div>
                 )}
@@ -340,84 +350,36 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
                     {getSpaceStatus(space.id)}
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     {userRole === 'admin' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRemoveSpaceDialog({ isOpen: true, spaceId: space.id });
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
-                        title="Eliminar espacio"
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditSpaceDialog({ isOpen: true, spaceId: space.id, name: space.name });
+                          }}
+                          className="p-1 rounded hover:bg-secondary"
+                          title="Renombrar espacio"
+                        >
+                          <PenLine className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRemoveSpaceDialog({ isOpen: true, spaceId: space.id });
+                          }}
+                          className="p-1 rounded hover:bg-destructive/10"
+                          title="Eliminar espacio"
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </motion.div>
               ))
             )}
           </motion.div>
-        ) : !selectedSubcategory ? (
-          /* Nivel 1: Tipos de elemento dentro del espacio */
-          <motion.div
-            key="subcategories"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.25 }}
-            className="space-y-3"
-          >
-            {getSubcategoriesInSpace(selectedSpaceId).length === 0 ? (
-              <div className="bg-card border rounded-xl p-10 text-center">
-                <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="font-semibold text-foreground">Sin elementos</p>
-                <p className="text-muted-foreground text-sm mt-1">
-                  {userRole === 'admin'
-                    ? 'Añade materiales del catálogo para este espacio.'
-                    : 'El administrador añadirá los materiales de este espacio.'}
-                </p>
-                {userRole === 'admin' && (
-                  <Button size="sm" className="mt-4" onClick={() => setIsCatalogPickerOpen(true)}>
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Añadir del catálogo
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <>
-                {getSubcategoriesInSpace(selectedSpaceId).map((sub, index) => (
-                  <motion.div
-                    key={sub}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    onClick={() => setSelectedSubcategory(sub)}
-                    className="bg-card p-4 rounded-xl border flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-colors"
-                  >
-                    <h3 className="font-semibold text-foreground">{sub}</h3>
-                    <div className="flex items-center gap-3">
-                      {getSubcategoryStatus(selectedSpaceId, sub)}
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                  </motion.div>
-                ))}
-                {userRole === 'admin' && (
-                  <div className="pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-dashed"
-                      onClick={() => setIsCatalogPickerOpen(true)}
-                    >
-                      <BookOpen className="w-4 h-4 mr-2" />
-                      Añadir elemento del catálogo
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </motion.div>
         ) : selectedDecision ? (
-          /* Nivel 3: Detalle */
+          /* Nivel 2: Detalle de producto */
           <motion.div
             key="detail"
             initial={{ opacity: 0, x: 50 }}
@@ -433,7 +395,7 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
             />
           </motion.div>
         ) : (
-          /* Nivel 2: Opciones en subcategoría */
+          /* Nivel 1: Productos del espacio */
           <motion.div
             key="list"
             initial={{ opacity: 0, x: 50 }}
@@ -441,21 +403,31 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
             exit={{ opacity: 0, x: -50 }}
             transition={{ duration: 0.3 }}
           >
-            {materialsInSubcategory.length === 0 && userRole === 'admin' ? (
+            {getMaterialsForSpace(selectedSpaceId).length === 0 ? (
               <div className="bg-card border rounded-xl p-10 text-center">
                 <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                 <p className="font-semibold text-foreground">Sin materiales</p>
                 <p className="text-muted-foreground text-sm mt-1">
-                  Añade opciones del catálogo para comparar y elegir.
+                  {userRole === 'admin'
+                    ? 'Añade materiales del catálogo o crea un producto nuevo para este espacio.'
+                    : 'El administrador añadirá los materiales de este espacio.'}
                 </p>
-                <Button size="sm" className="mt-4" onClick={() => setIsCatalogPickerOpen(true)}>
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Añadir del catálogo
-                </Button>
+                {userRole === 'admin' && (
+                  <div className="mt-4 flex gap-2 justify-center">
+                    <Button size="sm" variant="outline" onClick={() => setIsCatalogPickerOpen(true)}>
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      Del catálogo
+                    </Button>
+                    <Button size="sm" onClick={() => setIsNewProductModalOpen(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nuevo producto
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <MaterialList
-                decisions={materialsInSubcategory}
+                decisions={getMaterialsForSpace(selectedSpaceId)}
                 onSelectDecision={setSelectedDecision}
                 onEditDecision={handleEditDecision}
                 onDeleteDecision={handleDeleteDecision}
@@ -506,6 +478,37 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
         </DialogContent>
       </Dialog>
 
+      {/* Dialog: Renombrar espacio */}
+      <Dialog
+        open={editSpaceDialog.isOpen}
+        onOpenChange={(v) => !v && setEditSpaceDialog({ isOpen: false, spaceId: null, name: '' })}
+      >
+        <DialogContent className="bg-card border max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Renombrar espacio</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <Input
+              value={editSpaceDialog.name}
+              onChange={(e) => setEditSpaceDialog((prev) => ({ ...prev, name: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && handleConfirmEditSpace()}
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setEditSpaceDialog({ isOpen: false, spaceId: null, name: '' })}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleConfirmEditSpace} disabled={!editSpaceDialog.name.trim()}>
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Confirm eliminar espacio */}
       <AlertDialog
         open={removeSpaceDialog.isOpen}
@@ -515,7 +518,7 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar espacio?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se eliminará el espacio "{getSpaceName(removeSpaceDialog.spaceId)}" y todos sus materiales de este proyecto. Esta acción no se puede deshacer.
+              Se eliminará el espacio "{getSpaceName(removeSpaceDialog.spaceId)}". Los materiales asignados quedarán sin espacio pero no se borrarán.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -531,23 +534,26 @@ const ProjectDecisions = ({ materials = [], spaces = [], onUpdate, onSpacesUpdat
         isOpen={modalState.isOpen}
         onClose={() => setModalState({ isOpen: false, isEditing: false, data: null })}
         onSubmit={handleSaveDecision}
-        category={selectedSpaceId}
-        subcategory={selectedSubcategory}
-        availableSubcategories={[]}
         isEditing={modalState.isEditing}
         initialData={modalState.data}
         context="project"
       />
 
+      <AddMaterialModal
+        isOpen={isNewProductModalOpen}
+        onClose={() => setIsNewProductModalOpen(false)}
+        onSubmit={handleCreateNewProduct}
+        context="catalog"
+        availableCategories={catalogCategories.map((c) => c.name)}
+        onNewCategory={handleNewCategoryForProject}
+        isEditing={false}
+      />
+
       <CatalogPickerModal
         isOpen={isCatalogPickerOpen}
         onClose={() => setIsCatalogPickerOpen(false)}
-        materials={selectedSpaceId
-          ? catalogMaterials.filter((m) =>
-              m.category &&
-              m.category.toLowerCase() === getSpaceName(selectedSpaceId).toLowerCase()
-            )
-          : catalogMaterials}
+        categories={catalogCategories}
+        materials={catalogMaterials}
         onSelect={handlePickFromCatalog}
         existingMaterials={selectedSpaceId ? getMaterialsForSpace(selectedSpaceId) : []}
       />
