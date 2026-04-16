@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, StickyNote, Send } from 'lucide-react';
+import { Trash2, StickyNote, Send, CheckCircle2, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
@@ -36,6 +36,10 @@ const ProjectNotes = ({ notes = [], onUpdate }) => {
     onUpdate(notes.filter((n) => n.id !== deleteTarget.id));
     setDeleteTarget(null);
     toast({ title: 'Nota eliminada' });
+  };
+
+  const handleToggleComplete = (id) => {
+    onUpdate(notes.map((n) => (n.id === id ? { ...n, completed: !n.completed } : n)));
   };
 
   return (
@@ -82,10 +86,29 @@ const ProjectNotes = ({ notes = [], onUpdate }) => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="bg-amber-50 border border-amber-200 rounded-2xl p-4 group relative"
+                className={`border rounded-2xl p-4 group relative transition-colors ${
+                  note.completed
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : 'bg-amber-50 border-amber-200'
+                }`}
               >
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{note.content}</p>
-                <div className="flex items-center justify-between mt-3">
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => handleToggleComplete(note.id)}
+                    className="mt-0.5 flex-shrink-0 transition-colors"
+                    title={note.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
+                  >
+                    {note.completed ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-amber-400" />
+                    )}
+                  </button>
+                  <p className={`text-sm whitespace-pre-wrap leading-relaxed ${note.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                    {note.content}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between mt-3 pl-8">
                   <span className="text-xs text-muted-foreground">
                     {new Date(note.createdAt).toLocaleDateString('es-ES', {
                       day: '2-digit',

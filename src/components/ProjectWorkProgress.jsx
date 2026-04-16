@@ -44,8 +44,11 @@ const ProjectWorkProgress = ({ phases, onUpdate, userRole }) => {
   };
 
   const handleStatusChange = (phaseId, newStatus) => {
+    const today = new Date().toISOString().split('T')[0];
     const updatedPhases = phases.map(phase =>
-      phase.id === phaseId ? { ...phase, status: newStatus } : phase
+      phase.id === phaseId
+        ? { ...phase, status: newStatus, ...(newStatus === 'completed' ? { date: today } : {}) }
+        : phase
     );
     onUpdate(updatedPhases);
     toast({ title: "Fase actualizada", description: "El estado de la fase ha cambiado." });
