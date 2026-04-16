@@ -4,7 +4,7 @@ import { apiRequest } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Plus, ArrowLeft, Package, Home, Layers, ChevronRight,
+  Plus, ArrowLeft, Package, Layers, ChevronRight,
   Trash2, Edit, Eye,
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
@@ -27,25 +27,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const SUGGESTED_ZONES = [
-  'Generales', 'Aseo', 'Baño Principal', 'Baño Niños', 'Cocina',
-  'Salón', 'Comedor', 'Dormitorio Principal', 'Dormitorio 2',
-  'Dormitorio 3', 'Pasillo', 'Exterior',
-];
-
 const MaterialsCatalog = ({ onBack }) => {
   const [materials, setMaterials] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [modalState, setModalState] = useState({ isOpen: false, isEditing: false, data: null });
   const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, materialId: null });
   const [deleteCategoryDialog, setDeleteCategoryDialog] = useState({ isOpen: false, categoryId: null });
   const [viewImage, setViewImage] = useState(null);
   const [addZoneOpen, setAddZoneOpen] = useState(false);
   const [newZoneName, setNewZoneName] = useState('');
-  const [creatingZones, setCreatingZones] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -76,39 +68,7 @@ const MaterialsCatalog = ({ onBack }) => {
     );
   };
 
-  const getSubcategoriesForCategory = (catId) => {
-    const subs = getMaterialsForCategory(catId).map((m) => m.subcategory || 'General');
-    return [...new Set(subs)];
-  };
-
-  const getMaterialsForSubcategory = (catId, sub) =>
-    getMaterialsForCategory(catId).filter((m) => (m.subcategory || 'General') === sub);
-
-  const allSubcategories = [...new Set(materials.map((m) => m.subcategory).filter(Boolean))];
-
   // ── Zone handlers ────────────────────────────────────────────────────────────
-
-  const handleCreateCommonZones = async () => {
-    const existingNames = new Set(categories.map((c) => c.name.toLowerCase()));
-    const toCreate = SUGGESTED_ZONES.filter((n) => !existingNames.has(n.toLowerCase()));
-    if (toCreate.length === 0) {
-      toast({ title: 'Ya están creadas', description: 'Todas las zonas comunes ya existen en el catálogo.' });
-      return;
-    }
-    setCreatingZones(true);
-    try {
-      const created = [];
-      for (const name of toCreate) {
-        const res = await apiRequest('/categories', { method: 'POST', body: { name, description: '' } });
-        created.push(res.category);
-      }
-      setCategories((prev) => [...prev, ...created]);
-      toast({ title: 'Zonas comunes creadas', description: `${created.length} zonas añadidas al catálogo.` });
-    } catch (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    }
-    setCreatingZones(false);
-  };
 
   const handleAddCustomZone = async () => {
     const name = newZoneName.trim();
@@ -136,7 +96,6 @@ const MaterialsCatalog = ({ onBack }) => {
       toast({ title: 'Zona eliminada' });
       if (selectedCategoryId === categoryId) {
         setSelectedCategoryId(null);
-        setSelectedSubcategory(null);
       }
     } catch (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -183,13 +142,11 @@ const MaterialsCatalog = ({ onBack }) => {
   // ── Navigation ───────────────────────────────────────────────────────────────
 
   const goBack = () => {
-    if (selectedSubcategory) { setSelectedSubcategory(null); return; }
     if (selectedCategoryId) { setSelectedCategoryId(null); return; }
     onBack();
   };
 
   const getTitle = () => {
-    if (selectedSubcategory) return selectedSubcategory;
     if (selectedCategory) return selectedCategory.name;
     return 'Catálogo de Productos';
   };
@@ -212,16 +169,10 @@ const MaterialsCatalog = ({ onBack }) => {
 
         <div className="flex items-center gap-2">
           {!selectedCategoryId && (
-            <>
-              <Button size="sm" variant="outline" onClick={handleCreateCommonZones} disabled={creatingZones}>
-                <Home className="w-4 h-4 mr-2" />
-                {creatingZones ? 'Creando...' : 'Zonas comunes'}
-              </Button>
-              <Button size="sm" onClick={() => setAddZoneOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Añadir zona
-              </Button>
-            </>
+            <Button size="sm" onClick={() => setAddZoneOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Añadir categoría
+            </Button>
           )}
           {selectedCategoryId && (
             <Button size="sm" onClick={() => setModalState({ isOpen: true, isEditing: false, data: null })}>
@@ -233,28 +184,16 @@ const MaterialsCatalog = ({ onBack }) => {
       </div>
 
       {/* Breadcrumb */}
-      {(selectedCategoryId || selectedSubcategory) && (
+      {selectedCategoryId && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap mb-4">
           <button
-            onClick={() => { setSelectedCategoryId(null); setSelectedSubcategory(null); }}
+            onClick={() => setSelectedCategoryId(null)}
             className="hover:text-foreground transition-colors"
           >
             Catálogo
           </button>
-          {selectedCategory && (
-            <>
-              <ChevronRight className="w-3 h-3" />
-              <button onClick={() => setSelectedSubcategory(null)} className="hover:text-foreground transition-colors">
-                {selectedCategory.name}
-              </button>
-            </>
-          )}
-          {selectedSubcategory && (
-            <>
-              <ChevronRight className="w-3 h-3" />
-              <span className="text-foreground font-medium">{selectedSubcategory}</span>
-            </>
-          )}
+          <ChevronRight className="w-3 h-3" />
+          <span className="text-foreground font-medium">{selectedCategory?.name}</span>
         </div>
       )}
 
@@ -271,18 +210,14 @@ const MaterialsCatalog = ({ onBack }) => {
               {categories.length === 0 ? (
                 <div className="bg-card border rounded-xl p-12 text-center">
                   <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold">Sin zonas creadas</h3>
+                  <h3 className="text-xl font-semibold">Sin categorías creadas</h3>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    Crea las zonas para organizar los productos del catálogo.
+                    Crea categorías (ej: Grifería, Suelos) para organizar los productos del catálogo.
                   </p>
-                  <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-center">
-                    <Button onClick={handleCreateCommonZones} disabled={creatingZones}>
-                      <Home className="w-4 h-4 mr-2" />
-                      {creatingZones ? 'Creando...' : 'Crear zonas comunes'}
-                    </Button>
+                  <div className="mt-4 flex justify-center">
                     <Button variant="outline" onClick={() => setAddZoneOpen(true)}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Añadir personalizada
+                      Añadir categoría
                     </Button>
                   </div>
                 </div>
@@ -318,7 +253,7 @@ const MaterialsCatalog = ({ onBack }) => {
                             setDeleteCategoryDialog({ isOpen: true, categoryId: cat.id });
                           }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
-                          title="Eliminar zona"
+                          title="Eliminar categoría"
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </button>
@@ -330,69 +265,8 @@ const MaterialsCatalog = ({ onBack }) => {
             </motion.div>
           )}
 
-          {/* Level 1: Subcategories within zone */}
-          {selectedCategoryId && !selectedSubcategory && (
-            <motion.div
-              key="subcategories"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.25 }}
-              className="space-y-3"
-            >
-              {getSubcategoriesForCategory(selectedCategoryId).length === 0 ? (
-                <div className="bg-card border rounded-xl p-10 text-center">
-                  <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-semibold">Sin productos en {selectedCategory?.name}</p>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    Añade el primer producto a esta zona.
-                  </p>
-                  <Button size="sm" className="mt-4" onClick={() => setModalState({ isOpen: true, isEditing: false, data: null })}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Añadir producto
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  {getSubcategoriesForCategory(selectedCategoryId).map((sub, index) => {
-                    const count = getMaterialsForSubcategory(selectedCategoryId, sub).length;
-                    return (
-                      <motion.div
-                        key={sub}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.04 }}
-                        onClick={() => setSelectedSubcategory(sub)}
-                        className="bg-card p-4 rounded-xl border flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-colors"
-                      >
-                        <h3 className="font-semibold text-foreground">{sub}</h3>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-muted-foreground">
-                            {count} producto{count !== 1 ? 's' : ''}
-                          </span>
-                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                  <div className="pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-dashed"
-                      onClick={() => setModalState({ isOpen: true, isEditing: false, data: null })}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Añadir producto a {selectedCategory?.name}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          )}
-
-          {/* Level 2: Products within subcategory */}
-          {selectedCategoryId && selectedSubcategory && (
+          {/* Level 1: Products within category */}
+          {selectedCategoryId && (
             <motion.div
               key="products"
               initial={{ opacity: 0, x: 50 }}
@@ -400,13 +274,21 @@ const MaterialsCatalog = ({ onBack }) => {
               exit={{ opacity: 0, x: -50 }}
               transition={{ duration: 0.25 }}
             >
-              {getMaterialsForSubcategory(selectedCategoryId, selectedSubcategory).length === 0 ? (
+              {getMaterialsForCategory(selectedCategoryId).length === 0 ? (
                 <div className="bg-card border rounded-xl p-10 text-center">
-                  <p className="text-muted-foreground">Sin productos en esta subcategoría.</p>
+                  <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-semibold">Sin productos en {selectedCategory?.name}</p>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    Añade el primer producto a esta categoría.
+                  </p>
+                  <Button size="sm" className="mt-4" onClick={() => setModalState({ isOpen: true, isEditing: false, data: null })}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Añadir producto
+                  </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {getMaterialsForSubcategory(selectedCategoryId, selectedSubcategory).map((material) => (
+                  {getMaterialsForCategory(selectedCategoryId).map((material) => (
                     <motion.div
                       key={material.id}
                       layout
@@ -493,19 +375,18 @@ const MaterialsCatalog = ({ onBack }) => {
               .catch(() => {});
           }
         }}
-        availableSubcategories={allSubcategories}
         category={selectedCategory?.name}
       />
 
-      {/* Add Zone Dialog */}
+      {/* Add Category Dialog */}
       <Dialog open={addZoneOpen} onOpenChange={setAddZoneOpen}>
         <DialogContent className="bg-card border max-w-sm">
           <DialogHeader>
-            <DialogTitle>Añadir zona personalizada</DialogTitle>
+            <DialogTitle>Añadir categoría</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <Input
-              placeholder="Nombre de la zona (ej: Garaje, Piscina...)"
+              placeholder="Nombre de la categoría (ej: Grifería, Suelos...)"
               value={newZoneName}
               onChange={(e) => setNewZoneName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddCustomZone()}
@@ -516,7 +397,7 @@ const MaterialsCatalog = ({ onBack }) => {
                 Cancelar
               </Button>
               <Button onClick={handleAddCustomZone} disabled={!newZoneName.trim()}>
-                Crear zona
+                Crear categoría
               </Button>
             </div>
           </div>
@@ -547,16 +428,16 @@ const MaterialsCatalog = ({ onBack }) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Zone Dialog */}
+      {/* Delete Category Dialog */}
       <AlertDialog
         open={deleteCategoryDialog.isOpen}
         onOpenChange={(open) => !open && setDeleteCategoryDialog({ isOpen: false, categoryId: null })}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar zona?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar categoría?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se eliminará la zona del catálogo. Los productos de esta zona no se borran, pero quedarán sin zona asignada.
+              Se eliminará la categoría del catálogo. Los productos de esta categoría no se borran, pero quedarán sin categoría asignada.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

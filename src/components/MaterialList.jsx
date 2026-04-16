@@ -66,6 +66,9 @@ const MaterialList = ({ decisions, onSelectDecision, onEditDecision, onDeleteDec
             <div className="p-4 flex-1 flex flex-col">
               <h3 className="font-semibold text-foreground line-clamp-1">{decision.name}</h3>
               <p className="text-sm text-muted-foreground line-clamp-2 mt-1 flex-1">{decision.description}</p>
+              {userRole === 'admin' && decision.status === 'rejected' && decision.changeNote && (
+                <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1 italic line-clamp-2">"{decision.changeNote}"</p>
+              )}
               <div className="flex items-center justify-between mt-4 pt-2 border-t">
                 {getStatus(decision)}
                 {userRole === 'admin' && (
@@ -94,6 +97,9 @@ const MaterialList = ({ decisions, onSelectDecision, onEditDecision, onDeleteDec
           <div onClick={() => onSelectDecision(decision)} className="flex-grow cursor-pointer">
             <h3 className="font-semibold text-foreground">{decision.name}</h3>
             <p className="text-sm text-muted-foreground">{decision.description}</p>
+            {userRole === 'admin' && decision.status === 'rejected' && decision.changeNote && (
+              <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1 italic">"{decision.changeNote}"</p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {getStatus(decision)}
@@ -102,7 +108,7 @@ const MaterialList = ({ decisions, onSelectDecision, onEditDecision, onDeleteDec
                 <Button variant="ghost" size="icon" onClick={() => onEditDecision(decision)}>
                   <Edit className="w-4 h-4 text-muted-foreground" />
                 </Button>
-                {decision.status === 'pending' && onDeleteDecision && (
+                {(decision.status === 'pending' || decision.status === 'rejected') && onDeleteDecision && (
                   <Button
                     variant="ghost"
                     size="icon"
