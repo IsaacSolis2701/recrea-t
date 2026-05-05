@@ -4,7 +4,12 @@
       "Bash(npm install:*)",
       "Bash(curl -L -o \"public/images/login-bg.jpg\" \"https://horizons-cdn.hostinger.com/9b0cae66-2e72-403d-843a-0fb70e93f72d/71c66f6d54eea1b1851bd032a988ad00.jpg\")",
       "Bash(curl -L -o \"public/images/logo.png\" \"https://horizons-cdn.hostinger.com/9b0cae66-2e72-403d-843a-0fb70e93f72d/8877a48bde5c8ba74b0e1606613de701.png\")",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\isaac.solis\\\\Desktop\\\\Recrea-T\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\isaac.solis\\\\Desktop\\\\Recrea-T\" -Force | Select-Object Name, Mode, @{Name=\"Size\";Expression={if\\($_.PSIsContainer\\) {\"DIR\"} else {$_.Length}}} | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\isaac.solis\\\\Desktop\\\\Recrea-T\\\\server\" -Recurse | Where-Object {$_.PSIsContainer} | Select-Object FullName | ForEach-Object {$_.FullName.Replace\\(\"c:\\\\Users\\\\isaac.solis\\\\Desktop\\\\Recrea-T\\\\\", \"\"\\)} | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\isaac.solis\\\\Desktop\\\\Recrea-T\" -Name -File | Where-Object {$_ -match \"docker|compose|env|config\"})"
     ]
   }
 }
